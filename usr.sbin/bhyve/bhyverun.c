@@ -1048,8 +1048,6 @@ destroy_restore_state(struct restore_state *rstate)
 		return;
 	}
 
-	if (rstate->vmmem_map != MAP_FAILED)
-		munmap(rstate->vmmem_map, rstate->vmmem_len);
 	if (rstate->kdata_map != MAP_FAILED)
 		munmap(rstate->kdata_map, rstate->kdata_len);
 
@@ -1088,12 +1086,6 @@ load_vmmem_file(const char *filename, struct restore_state *rstate)
 	}
 
 	rstate->vmmem_len = sb.st_size;
-	rstate->vmmem_map = mmap(NULL, rstate->vmmem_len, PROT_READ,
-				 MAP_SHARED, rstate->vmmem_fd, 0);
-	if (rstate->vmmem_map == MAP_FAILED) {
-		perror("Failed to map restore file");
-		goto err_load_vmmem;
-	}
 
 	return (0);
 
@@ -1191,7 +1183,6 @@ load_restore_file(const char *filename, struct restore_state *rstate)
 	assert(rstate != NULL);
 
 	memset(rstate, 0, sizeof(*rstate));
-	rstate->vmmem_map = MAP_FAILED;
 	rstate->kdata_map = MAP_FAILED;
 
 	err = load_vmmem_file(filename, rstate);
@@ -1440,7 +1431,7 @@ lookup_guest_ncpus(struct restore_state *rstate)
 static int
 restore_vm_mem(struct vmctx *ctx, struct restore_state *rstate)
 {
-	return vm_restore_mem(ctx, rstate->vmmem_map, rstate->vmmem_len);
+	return vm_restore_mem(ctx, rstate->vmmem_fd, rstate->vmmem_len);
 }
 
 static int
