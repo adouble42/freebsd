@@ -58,6 +58,7 @@ SRCS=	\
 	rfb.c			\
 	rtc.c			\
 	smbiostbl.c		\
+	snapshot.c		\
 	sockstream.c		\
 	task_switch.c		\
 	uart_emul.c		\
