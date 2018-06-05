@@ -64,7 +64,7 @@ receive_vm_migration(struct vmctx *ctx, char *migration_data)
 		req.port = DEFAULT_MIGRATION_PORT;
 	}
 
-	rc = vm_recv_migrate_req(ctx, req, pci_restore);
+	rc = vm_recv_migrate_req(ctx, req);
 
 	free(hostname);
 	return (rc);
@@ -792,10 +792,8 @@ migrate_recv_kern_data(struct vmctx *ctx, int socket)
 }
 
 static int
-migrate_send_pci_devs(struct vmctx *ctx, int socket, void *argv)
+migrate_send_pci_devs(struct vmctx *ctx, int socket)
 {
-	int (*pci_func)(struct vmctx *, const char *, void *,
-			size_t, size_t *);
 	int rc, i, error = 0;
 	char *buffer;
 	size_t data_size;
@@ -805,9 +803,6 @@ migrate_send_pci_devs(struct vmctx *ctx, int socket, void *argv)
 		"virtio-blk",
 		"lpc",
 	};
-
-	pci_func = (int (*)(struct vmctx *, const char *, void *,
-			   size_t, size_t *)) argv;
 
 	buffer = malloc(KERN_DATA_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
@@ -821,8 +816,8 @@ migrate_send_pci_devs(struct vmctx *ctx, int socket, void *argv)
 	for (i = 0; i < sizeof(devs) / sizeof(devs[0]); i++) {
 		memset(buffer, 0, KERN_DATA_BUFFER_SIZE);
 
-		rc = pci_func(ctx, devs[i], buffer, KERN_DATA_BUFFER_SIZE,
-			      &data_size);
+		rc = pci_snapshot(ctx, devs[i], buffer,
+				  KERN_DATA_BUFFER_SIZE, &data_size);
 		if (rc < 0) {
 			fprintf(stderr,
 				"%s: Could not get info about %s dev\r\n",
@@ -869,10 +864,8 @@ end:
 }
 
 static int
-migrate_recv_pci_devs(struct vmctx *ctx, int socket, void *argv)
+migrate_recv_pci_devs(struct vmctx *ctx, int socket)
 {
-	int (*pci_func)(struct vmctx *, const char *, void *,
-			size_t);
 	int rc, i, error = 0;
 	char *buffer;
 	size_t data_size;
@@ -882,9 +875,6 @@ migrate_recv_pci_devs(struct vmctx *ctx, int socket, void *argv)
 		"virtio-blk",
 		"lpc",
 	};
-
-	pci_func = (int (*)(struct vmctx *, const char *, void *,
-			   size_t)) argv;
 
 	buffer = malloc(KERN_DATA_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
@@ -921,7 +911,7 @@ migrate_recv_pci_devs(struct vmctx *ctx, int socket, void *argv)
 			goto end;
 		}
 
-		rc = pci_func(ctx, devs[i], buffer, data_size);
+		rc = pci_restore(ctx, devs[i], buffer, data_size);
 		if (rc != 0) {
 			fprintf(stderr,
 				"%s: Could not restore %s dev\r\n",
@@ -942,7 +932,7 @@ end:
 }
 
 int
-vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req, void *pci_ptr)
+vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 {
 	unsigned char ipv4_addr[MAX_IP_LEN];
 	unsigned char ipv6_addr[MAX_IP_LEN];
@@ -1053,7 +1043,7 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req, void *pci_ptr)
 	}
 
 	// Send PCI data
-	rc =  migrate_send_pci_devs(ctx, s, pci_ptr);
+	rc =  migrate_send_pci_devs(ctx, s);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not send pci devs to destination\r\n",
@@ -1093,7 +1083,7 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req, void *pci_ptr)
 }
 
 int
-vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req, void *pci_ptr)
+vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req)
 {
 	unsigned char ipv4_addr[MAX_IP_LEN];
 	unsigned char ipv6_addr[MAX_IP_LEN];
@@ -1193,7 +1183,7 @@ vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req, void *pci_ptr)
 		return (-1);
 	}
 
-	rc = migrate_recv_pci_devs(ctx, con_socket, pci_ptr);
+	rc = migrate_recv_pci_devs(ctx, con_socket);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not recv pci devs\r\n",
