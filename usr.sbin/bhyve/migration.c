@@ -405,12 +405,8 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 			__func__);
 		return (rc);
 	}
-	fprintf(stdout, "%s: Lowmem: %lu; Highmem: %lu\r\n",
-			__func__,
-			local_lowmem_size,
-			local_highmem_size);
 
-	// TODO: recv remote_lowmem_size
+	// recv remote_lowmem_size
 	rc = migration_recv_data_from_remote(socket,
 			&remote_lowmem_size,
 			sizeof(size_t));
@@ -420,7 +416,7 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 			__func__);
 		return (rc);
 	}
-	// TODO: recv remote_highmem_size
+	// recv remote_highmem_size
 	rc = migration_recv_data_from_remote(socket,
 			&remote_highmem_size,
 			sizeof(size_t));
@@ -430,7 +426,7 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 			__func__);
 		return (rc);
 	}
-	// TODO: check if local low/high mem is equal with remote low/high mem
+	// check if local low/high mem is equal with remote low/high mem
 	memsize_ok = migrate_check_memsize(local_lowmem_size, local_highmem_size,
 					   remote_lowmem_size, remote_highmem_size);
 
@@ -451,7 +447,7 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 		return (-1);
 	}
 
-	// TODO: map highmem and lowmem
+	// map highmem and lowmem
 	rc = vm_get_vm_mem(ctx, &mmap_vm_lowmem, &mmap_vm_highmem,
 			   baseaddr, local_lowmem_size,
 			   local_highmem_size);
@@ -470,15 +466,10 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 		return (-1);
 	}
 
-	// TODO: recv lowmem
-
+	// recv lowmem
 	chunks = local_lowmem_size / chunk_size;
 
-	fprintf(stdout, "%s: chunks = %lu\r\n", __func__, chunks);
-
-
 	for (i = 0 ; i < chunks; i++) {
-		fprintf(stdout, "%s: Will recv chunk no %lu\r\n", __func__, i);
 		memset(buffer, 0, chunk_size);
 
 		rc = migration_recv_data_from_remote(socket, buffer, chunk_size);
@@ -491,20 +482,9 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 		}
 
 		memcpy(mmap_vm_lowmem + i * chunk_size, buffer, chunk_size);
+	}
 
-		fprintf(stdout, "%s: Set chunk %lu\r\n", __func__, i);
-	}
-#if 0
-	rc = migration_recv_data_from_remote(socket, mmap_vm_lowmem,
-				 local_lowmem_size);
-	if (rc < 0) {
-		fprintf(stderr,
-			"%s: Could not recv lowmem\r\n",
-			__func__);
-		return (-1);
-	}
-#endif
-	// TODO: recv highmem
+	// recv highmem
 	if (local_highmem_size > 0 ){
 		rc = migration_recv_data_from_remote(socket,
 				mmap_vm_highmem,
@@ -541,12 +521,8 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 			__func__);
 		return (rc);
 	}
-	fprintf(stdout, "%s: Lowmem: %lu; Highmem: %lu\r\n",
-			__func__,
-			lowmem_size,
-			highmem_size);
 
-	// TODO: send lowmem_size
+	// send lowmem_size
 	rc = migration_send_data_remote(socket, &lowmem_size, sizeof(size_t));
 	if (rc < 0) {
 		fprintf(stderr,
@@ -554,9 +530,8 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 			__func__);
 		return (rc);
 	}
-	fprintf(stdout, "%s: Sent lowmem size\r\n", __func__);
 
-	// TODO: send highmem_size
+	// send highmem_size
 	rc = migration_send_data_remote(socket, &highmem_size, sizeof(size_t));
 	if (rc < 0) {
 		fprintf(stderr,
@@ -565,8 +540,7 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 		return (rc);
 	}
 
-	fprintf(stdout, "%s: Sent highmem\r\n", __func__);
-	// TODO: wait for answer (?) params ok (?)
+	// wait for answer - params ok
 	rc = migration_recv_data_from_remote(socket, &memsize_ok, sizeof(memsize_ok));
 	if (rc < 0) {
 		fprintf(stderr,
@@ -575,7 +549,6 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 		return (rc);
 	}
 
-	fprintf(stdout, "%s: Got memsize OK\r\n", __func__);
 	if (memsize_ok != MIGRATION_SPECS_OK) {
 		fprintf(stderr,
 			"%s: Memory size mismatch with remote host\r\n",
@@ -583,25 +556,11 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 		return (-1);
 	}
 
-	fprintf(stdout, "%s: memory size matched\r\n", __func__);
-	// TODO: map highmem and lowmem
 	mmap_vm_lowmem = baseaddr;
 	mmap_vm_highmem = baseaddr + 4 * GB;
-//	rc = vm_get_vm_mem(ctx, &mmap_vm_lowmem, &mmap_vm_highmem,
-//			   baseaddr, lowmem_size, highmem_size);
-	if (rc != 0) {
-		fprintf(stderr,
-			"%s: Could not mamp guest lowmem and highmem\r\n",
-			__func__);
-		return (rc);
-	}
 
-	fprintf(stdout, "%s: Mapped lowmem and highmem\r\n", __func__);
-	// TODO: send lowmem
-
+	// send lowmem
 	chunks = lowmem_size / chunk_size;
-
-	fprintf(stdout, "%s: chunks = %lu\r\n", __func__, chunks);
 
 	buffer = malloc(chunk_size * sizeof(char));
 	if (buffer == NULL) {
@@ -612,7 +571,6 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 	}
 
 	for (i = 0 ; i < chunks; i++) {
-		fprintf(stdout, "%s: Will send chunk no %lu\r\n", __func__, i);
 		memset(buffer, 0, chunk_size);
 		memcpy(buffer, mmap_vm_lowmem + i * chunk_size, chunk_size);
 
@@ -624,21 +582,9 @@ migrate_send_memory(struct vmctx *ctx, int socket)
 				i);
 			return (-1);
 		}
-
-		fprintf(stdout, "%s: Sent chunk %lu\r\n", __func__, i);
 	}
-#if 0
-	rc = migration_send_data_remote(socket, mmap_vm_lowmem, lowmem_size);
-	if (rc < 0) {
-		fprintf(stderr,
-			"%s: Could not send lowmem\r\n",
-			__func__);
-		return (-1);
-	}
-#endif
-	fprintf(stdout, "%s: Sent lowmem\r\n", __func__);
 
-	// TODO: send highmem
+	// send highmem
 	if (highmem_size > 0 ){
 		rc = migration_send_data_remote(socket, mmap_vm_highmem, highmem_size);
 		if (rc < 0) {
