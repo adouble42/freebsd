@@ -1,6 +1,8 @@
 #ifndef _BHYVE_SNAPSHOT_
 #define _BHYVE_SNAPSHOT_
 
+#include <ucl.h>
+
 struct vmctx;
 
 struct __attribute__((packed)) restore_state {
@@ -21,6 +23,8 @@ struct checkpoint_thread_info {
 	int socket_fd;
 	struct sockaddr_un *addr;
 } checkpoint_info;
+
+const char **get_pci_devs(int *);
 
 void destroy_restore_state(struct restore_state *rstate);
 

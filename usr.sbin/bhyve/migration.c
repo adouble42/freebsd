@@ -31,6 +31,7 @@ __FBSDID("$FreeBSD$");
 
 #include "migration.h"
 #include "pci_emul.h"
+#include "snapshot.h"
 
 #define MB		(1024UL * 1024)
 #define GB		(1024UL * MB)
@@ -728,6 +729,7 @@ migrate_send_pci_dev(struct vmctx *ctx, int socket, const char *dev,
 	size_t data_size;
 	struct migration_message_type msg;
 
+	data_size = 0;
 	memset(buffer, 0, len);
 
 	rc = pci_snapshot(ctx, dev, buffer, len, &data_size);
@@ -751,6 +753,12 @@ migrate_send_pci_dev(struct vmctx *ctx, int socket, const char *dev,
 			__func__,
 			dev);
 		return (-1);
+	}
+
+	if (data_size == 0) {
+		fprintf(stderr, "%s: Did not send %s dev. Assuming unused. "
+			"Continuing...\r\n", __func__, dev);
+		return (0);
 	}
 
 	// send dev
@@ -788,6 +796,13 @@ migrate_recv_pci_dev(struct vmctx *ctx, int socket, const char *dev, char *buffe
 	data_size = msg.len;
 	// recv dev
 	memset(buffer, 0 , len);
+
+	if (data_size == 0) {
+		fprintf(stderr, "%s: Did not restore %s dev. Assuming unused. "
+			"Continuing...\r\n", __func__, dev);
+		return (0);
+	}
+
 	rc = migration_recv_data_from_remote(socket, buffer, data_size);
 	if (rc < 0) {
 		fprintf(stderr,
@@ -814,11 +829,10 @@ migrate_pci_devs(struct vmctx *ctx, int socket, enum migration_transfer_req req)
 {
 	int rc, i, error = 0;
 	char *buffer;
-	char *devs[] = {
-		"virtio-net",
-		"virtio-blk",
-		"lpc",
-	};
+	const char **pci_devs;
+	int ndevs;
+
+	pci_devs = get_pci_devs(&ndevs);
 
 	buffer = malloc(KERN_DATA_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
@@ -829,20 +843,20 @@ migrate_pci_devs(struct vmctx *ctx, int socket, enum migration_transfer_req req)
 		goto end;
 	}
 
-	for (i = 0; i < sizeof(devs) / sizeof(devs[0]); i++) {
+	for (i = 0; i < ndevs; i++) {
 		if (req == MIGRATION_SEND_REQ) {
-			rc = migrate_send_pci_dev(ctx, socket, devs[i],
+			rc = migrate_send_pci_dev(ctx, socket, pci_devs[i],
 						  buffer, KERN_DATA_BUFFER_SIZE);
 
 			if (rc < 0) {
 				fprintf(stderr,
 					"%s: Could not send %s\r\n",
-					__func__, devs[i]);
+					__func__, pci_devs[i]);
 				error = -1;
 				goto end;
 			}
 		} else if (req == MIGRATION_RECV_REQ) {
-			rc = migrate_recv_pci_dev(ctx, socket, devs[i],
+			rc = migrate_recv_pci_dev(ctx, socket, pci_devs[i],
 						  buffer, KERN_DATA_BUFFER_SIZE);
 
 			if (rc < 0) {

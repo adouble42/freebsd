@@ -92,6 +92,15 @@ const char *pci_devs[] = {
 	"lpc",
 };
 
+const char **
+get_pci_devs(int *ndevs)
+{
+	if (ndevs != NULL)
+		*ndevs = nitems(pci_devs);
+
+	return pci_devs;
+}
+
 /* TODO: Harden this function and all of its callers since 'base_str' is a user
  * provided string.
  */
