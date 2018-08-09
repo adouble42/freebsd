@@ -24,7 +24,15 @@ struct checkpoint_thread_info {
 	struct sockaddr_un *addr;
 } checkpoint_info;
 
-const char **get_pci_devs(int *);
+typedef int (*vm_snapshot_dev_cb)(struct vmctx *, const char *, void *, size_t,
+				  size_t *);
+typedef int (*vm_restore_dev_cb) (struct vmctx *, const char *, void *, size_t);
+
+struct vm_snapshot_dev_info {
+	const char *dev_name;            /* device name */
+	vm_snapshot_dev_cb snapshot_cb;  /* callback for device snapshot */
+	vm_restore_dev_cb restore_cb;    /* callback for device restore */
+};
 
 void destroy_restore_state(struct restore_state *rstate);
 
