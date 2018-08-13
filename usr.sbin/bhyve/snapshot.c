@@ -72,8 +72,6 @@ extern int guest_ncpus;
 
 #define MAX_MSG_SIZE 1024
 
-#define SNAPSHOT_BUFFER_SIZE (20 * MB)
-
 #define JSON_STRUCT_ARR_KEY		"structs"
 #define JSON_DEV_ARR_KEY		"devices"
 #define JSON_BASIC_METADATA_KEY 	"basic metadata"

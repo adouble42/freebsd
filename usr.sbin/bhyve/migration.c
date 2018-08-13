@@ -721,18 +721,45 @@ migrate_kern_data(struct vmctx *ctx, int socket, enum migration_transfer_req req
 	return (error);
 }
 
+static inline const struct vm_snapshot_dev_info *
+find_entry_for_dev(const char *name)
+{
+	int i;
+	int ndevs;
+	const struct vm_snapshot_dev_info *snapshot_devs;
+
+	snapshot_devs = get_snapshot_devs(&ndevs);
+
+	for (i = 0; i < ndevs; i++) {
+		if (strncmp(name, snapshot_devs[i].dev_name, MAX_DEV_NAME_LEN) == 0) {
+			return (&snapshot_devs[i]);
+		}
+	}
+
+	return NULL;
+}
+
 static inline int
-migrate_send_pci_dev(struct vmctx *ctx, int socket, const char *dev,
+migrate_send_dev(struct vmctx *ctx, int socket, const char *dev,
 		     char *buffer, size_t len)
 {
 	int rc;
 	size_t data_size;
 	struct migration_message_type msg;
+	const struct vm_snapshot_dev_info *dev_info;
 
 	data_size = 0;
 	memset(buffer, 0, len);
+	dev_info = find_entry_for_dev(dev);
+	if (dev_info == NULL) {
+	    fprintf(stderr, "%s: Could not find the device %s "
+		    "or migration not implemented yet for it."
+		    "Please check if you have the same OS version installed.\r\n",
+		    __func__, dev);
+	    return (0);
+	}
 
-	rc = pci_snapshot(ctx, dev, buffer, len, &data_size);
+	rc = (*dev_info->snapshot_cb)(ctx, dev, buffer, len, &data_size);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not get info about %s dev\r\n",
@@ -743,8 +770,9 @@ migrate_send_pci_dev(struct vmctx *ctx, int socket, const char *dev,
 
 	// send struct size to destination
 	memset(&msg, 0, sizeof(msg));
-	msg.type = MESSAGE_TYPE_PCI;
+	msg.type = MESSAGE_TYPE_DEV;
 	msg.len = data_size;
+	strncpy(msg.name, dev, MAX_DEV_NAME_LEN);
 
 	rc = migration_send_data_remote(socket, &msg, sizeof(msg));
 	if (rc < 0) {
@@ -775,66 +803,72 @@ migrate_send_pci_dev(struct vmctx *ctx, int socket, const char *dev,
 }
 
 static int
-migrate_recv_pci_dev(struct vmctx *ctx, int socket, const char *dev, char *buffer, size_t len)
+migrate_recv_dev(struct vmctx *ctx, int socket, char *buffer, size_t len)
 {
 	int rc;
 	size_t data_size;
 	struct migration_message_type msg;
+	const struct vm_snapshot_dev_info *dev_info;
 
 	// recv struct size to destination
 	memset(&msg, 0, sizeof(msg));
 
 	rc = migration_recv_data_from_remote(socket, &msg, sizeof(msg));
 	if (rc < 0) {
-		fprintf(stderr,
-			"%s: Could not recv msg for %s\r\n",
-			__func__,
-			dev);
+		fprintf(stderr, "%s: Could not recv msg for device.\r\n", __func__);
 		return (-1);
 	}
 
 	data_size = msg.len;
 	// recv dev
-	memset(buffer, 0 , len);
 
-	if (data_size == 0) {
+	if(data_size == 0) {
 		fprintf(stderr, "%s: Did not restore %s dev. Assuming unused. "
-			"Continuing...\r\n", __func__, dev);
+			"Continuing...\r\n", __func__, msg.name);
 		return (0);
 	}
 
+	memset(buffer, 0 , len);
 	rc = migration_recv_data_from_remote(socket, buffer, data_size);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not recv %s dev\r\n",
 			__func__,
-			dev);
+			msg.name);
 		return (-1);
 	}
 
-	rc = pci_restore(ctx, dev, buffer, data_size);
+	dev_info = find_entry_for_dev(msg.name);
+	if (dev_info == NULL) {
+	    fprintf(stderr, "%s: Could not find the device %s "
+		    "or migration not implemented yet for it."
+		    "Please check if you have the same OS version installed.\r\n",
+		    __func__, msg.name);
+	    return (0);
+	}
+
+	rc = (*dev_info->restore_cb)(ctx, msg.name, buffer, data_size);
 	if (rc != 0) {
 		fprintf(stderr,
 			"%s: Could not restore %s dev\r\n",
 			__func__,
-			dev);
+			msg.name);
 		return (-1);
 	}
 
 	return (0);
 }
 
+
 static int
-migrate_pci_devs(struct vmctx *ctx, int socket, enum migration_transfer_req req)
+migrate_devs(struct vmctx *ctx, int socket, enum migration_transfer_req req)
 {
-	int rc, i, error = 0;
+	int i, num_items;
+	int rc, error = 0;
 	char *buffer;
-	const char **pci_devs;
-	int ndevs;
+	const struct vm_snapshot_dev_info *snapshot_devs;
 
-	pci_devs = get_pci_devs(&ndevs);
-
-	buffer = malloc(KERN_DATA_BUFFER_SIZE * sizeof(char));
+	buffer = malloc(SNAPSHOT_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
 		fprintf(stderr,
 			"%s: Could not allocate memory\r\n",
@@ -843,26 +877,44 @@ migrate_pci_devs(struct vmctx *ctx, int socket, enum migration_transfer_req req)
 		goto end;
 	}
 
-	for (i = 0; i < ndevs; i++) {
-		if (req == MIGRATION_SEND_REQ) {
-			rc = migrate_send_pci_dev(ctx, socket, pci_devs[i],
-						  buffer, KERN_DATA_BUFFER_SIZE);
+	if (req == MIGRATION_SEND_REQ) {
+		// send to the destination the number of devices that will
+		// be migrated
+		snapshot_devs = get_snapshot_devs(&num_items);
+		rc = migration_send_data_remote(socket, &num_items, sizeof(num_items));
+
+		if (rc < 0) {
+		    fprintf(stderr, "%s: Could not send num_items to destination\r\n", __func__);
+		    return (-1);
+		}
+
+		for (i = 0; i < num_items; i++) {
+			rc = migrate_send_dev(ctx, socket, snapshot_devs[i].dev_name,
+						buffer, SNAPSHOT_BUFFER_SIZE);
 
 			if (rc < 0) {
 				fprintf(stderr,
 					"%s: Could not send %s\r\n",
-					__func__, pci_devs[i]);
+					__func__, snapshot_devs[i].dev_name);
 				error = -1;
 				goto end;
 			}
-		} else if (req == MIGRATION_RECV_REQ) {
-			rc = migrate_recv_pci_dev(ctx, socket, pci_devs[i],
-						  buffer, KERN_DATA_BUFFER_SIZE);
+	    }
+	} else if (req == MIGRATION_RECV_REQ) {
+		// receive the number of devices that will be migrated
+		rc = migration_recv_data_from_remote(socket, &num_items, sizeof(num_items));
 
+		if (rc < 0) {
+		    fprintf(stderr, "%s: Could not recv num_items from source\r\n", __func__);
+		    return (-1);
+		}
+
+		for (i = 0; i < num_items; i ++) {
+			rc = migrate_recv_dev(ctx, socket, buffer, SNAPSHOT_BUFFER_SIZE);
 			if (rc < 0) {
 				fprintf(stderr,
-					"%s: Could not recv pci device\r\n",
-					__func__);
+				    "%s: Could not recv device\r\n",
+				    __func__);
 				error = -1;
 				goto end;
 			}
@@ -989,7 +1041,7 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 	}
 
 	// Send PCI data
-	rc =  migrate_pci_devs(ctx, s, MIGRATION_SEND_REQ);
+	rc =  migrate_devs(ctx, s, MIGRATION_SEND_REQ);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not send pci devs to destination\r\n",
@@ -1131,7 +1183,7 @@ vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req)
 		return (-1);
 	}
 
-	rc = migrate_pci_devs(ctx, con_socket, MIGRATION_RECV_REQ);
+	rc = migrate_devs(ctx, con_socket, MIGRATION_RECV_REQ);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not recv pci devs\r\n",
