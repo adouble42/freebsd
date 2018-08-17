@@ -43,6 +43,9 @@ struct vm_snapshot_kern_info {
 	enum snapshot_req req;		/* request type */
 };
 
+const struct vm_snapshot_dev_info *get_snapshot_devs(int *ndevs);
+const struct vm_snapshot_kern_info *get_snapshot_kern_structs(int *ndevs);
+
 void destroy_restore_state(struct restore_state *rstate);
 
 const char * lookup_vmname(struct restore_state *rstate);

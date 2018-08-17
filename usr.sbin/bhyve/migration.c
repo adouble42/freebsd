@@ -661,20 +661,11 @@ static int
 migrate_kern_data(struct vmctx *ctx, int socket, enum migration_transfer_req req)
 {
 	int i, rc, error = 0;
+	int ndevs;
 	char *buffer;
-	enum snapshot_req structs[] = {
-		STRUCT_VM,
-		STRUCT_VMX,
-		STRUCT_VIOAPIC,
-		STRUCT_VLAPIC,
-		STRUCT_LAPIC,
-		STRUCT_VHPET,
-		STRUCT_VMCX,
-		STRUCT_VATPIC,
-		STRUCT_VATPIT,
-		STRUCT_VPMTMR,
-		STRUCT_VRTC,
-	};
+	const struct vm_snapshot_kern_info *snapshot_kern_structs;
+
+	snapshot_kern_structs = get_snapshot_kern_structs(&ndevs);
 
 	buffer = malloc(KERN_DATA_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
@@ -684,26 +675,26 @@ migrate_kern_data(struct vmctx *ctx, int socket, enum migration_transfer_req req
 		return (-1);
 	}
 
-	for (i = 0; i < sizeof(structs)/sizeof(structs[0]); i++) {
+	for (i = 0; i < ndevs; i++) {
 		if (req == MIGRATION_RECV_REQ) {
 			// wait for msg message
 			rc = migrate_recv_kern_struct(ctx, socket, buffer);
 			if (rc < 0) {
 				fprintf(stderr,
-					"%s: Could not restore struct %d\n",
+					"%s: Could not restore struct %s\n",
 					__func__,
-					structs[i]);
+					snapshot_kern_structs[i].struct_name);
 				error = -1;
 				break;
 			}
 		} else if (req == MIGRATION_SEND_REQ) {
-			rc = migrate_send_kern_struct(ctx, socket,
-						      buffer, structs[i]);
+			rc = migrate_send_kern_struct(ctx, socket, buffer,
+					snapshot_kern_structs[i].req);
 			if (rc < 0 ) {
 				fprintf(stderr,
-					"%s: Could not send %d\r\n",
+					"%s: Could not send %s\r\n",
 					__func__,
-					structs[i]);
+					snapshot_kern_structs[i].struct_name);
 				error = -1;
 				break;
 			}

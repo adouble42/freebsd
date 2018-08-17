@@ -164,6 +164,24 @@ const struct vm_snapshot_kern_info snapshot_kern_structs[] = {
 	},
 };
 
+const struct vm_snapshot_dev_info *
+get_snapshot_devs(int *ndevs)
+{
+	if (ndevs != NULL)
+		*ndevs = nitems(snapshot_devs);
+
+	return (snapshot_devs);
+}
+
+const struct vm_snapshot_kern_info *
+get_snapshot_kern_structs(int *ndevs)
+{
+	if (ndevs != NULL)
+		*ndevs = nitems(snapshot_kern_structs);
+
+	return (snapshot_kern_structs);
+}
+
 /* TODO: Harden this function and all of its callers since 'base_str' is a user
  * provided string.
  */
