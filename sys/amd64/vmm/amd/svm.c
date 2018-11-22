@@ -2661,5 +2661,5 @@ struct vmm_ops vmm_ops_amd = {
 	.vmrestore	= svm_restore_vmi,
 	.vmcx_snapshot	= svm_snapshot_vmcx,
 	.vmcx_restore	= svm_restore_vmcx,
-	.trap_rdtsc	= NULL /* trap_rdtsc not yet implemented for AMD */
+	.vm_restore_tsc	= NULL /* restore_tsc not yet implemented for AMD */
 };
