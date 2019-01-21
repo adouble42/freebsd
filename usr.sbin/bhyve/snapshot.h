@@ -1,6 +1,7 @@
 #ifndef _BHYVE_SNAPSHOT_
 #define _BHYVE_SNAPSHOT_
 
+#include <sys/types.h>
 #include <ucl.h>
 
 struct vmctx;
