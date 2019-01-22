@@ -1006,6 +1006,13 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 		goto done;
 	}
 
+	rc = pause_devs(ctx);
+	if (rc != 0) {
+		fprintf(stderr, "Could not pause devices\r\n");
+		error = rc;
+		goto done;
+	}
+
 	rc = vm_vcpu_lock_all(ctx);
 	if (rc != 0) {
 		fprintf(stderr, "%s: Could not suspend vm\r\n", __func__);
@@ -1062,6 +1069,10 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 		fprintf(stderr, "Failed to suspend vm\n");
 	}
 
+	rc = resume_devs(ctx);
+	if (rc != 0)
+		fprintf(stderr, "Could not resume devices\r\n");
+
 	/* Wait for CPUs to suspend. TODO: write this properly. */
 	sleep(5);
 	vm_destroy(ctx);
@@ -1074,6 +1085,10 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 unlock_vm_and_exit:
 	vm_vcpu_unlock_all(ctx);
 done:
+
+	rc = resume_devs(ctx);
+	if (rc != 0)
+		fprintf(stderr, "Could not resume devices\r\n");
 	close(s);
 	return (error);
 }

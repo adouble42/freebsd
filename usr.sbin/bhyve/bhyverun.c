@@ -1280,9 +1280,19 @@ main(int argc, char *argv[])
 
 
 	if (receive_migration != NULL) {
+		if (pause_devs(ctx) != 0) {
+			fprintf(stderr, "Failed to pause PCI device state.\n");
+			exit(1);
+		}
+
 		fprintf(stdout, "Starting the migration process...\r\n");
 		if (receive_vm_migration(ctx, receive_migration) != 0) {
 			fprintf(stderr, "Failed to migrate the vm.\r\n");
+			exit(1);
+		}
+
+		if (resume_devs(ctx) != 0) {
+			fprintf(stderr, "Failed to resume PCI device state.\n");
 			exit(1);
 		}
 	}
