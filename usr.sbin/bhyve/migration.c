@@ -149,7 +149,10 @@ migration_recv_data_from_remote(int socket, void *msg, size_t len)
 
 	while (to_recv > 0) {
 		recvt = recv(socket, msg + total_recv, to_recv, 0);
-		if (recvt <= 0) {
+		if (recvt == 0) {
+			break;
+		}
+		if (recvt < 0) {
 			perror("Error while receiving data");
 			return (recvt);
 		}
