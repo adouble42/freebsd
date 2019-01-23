@@ -1,6 +1,7 @@
 #ifndef _BHYVE_SNAPSHOT_
 #define _BHYVE_SNAPSHOT_
 
+#include <libxo/xo.h>
 #include <machine/vmm_dev.h>
 #include <sys/types.h>
 #include <ucl.h>
@@ -49,6 +50,38 @@ struct vm_snapshot_kern_info {
 
 const struct vm_snapshot_dev_info *get_snapshot_devs(int *ndevs);
 const struct vm_snapshot_kern_info *get_snapshot_kern_structs(int *ndevs);
+
+struct vm_snapshot_buffer {
+	/* R/O for device-specific functions;
+	 * written by generic snapshot functions
+	 */
+	uint8_t *const buf_start;
+	const size_t buf_size;
+
+	/* R/W for device-specific functions
+	 * used to keep track of buffer current position and remaining size
+	 */
+	uint8_t *buf;
+	size_t buf_rem;
+
+	/* length of the snapshot is either determined as (buf_size - buf_rem)
+	 * or (buf - buf_start) -- the second variation returns a signed value
+	 * so it may not be appropriate
+	 */
+	/* size_t snapshot_len; */
+};
+
+struct vm_snapshot_meta {
+	struct vmctx *ctx;
+	void *dev_data;
+
+	struct vm_snapshot_buffer buffer;
+};
+
+struct vm_snapshot_file_meta {
+	int data_fd;
+	xo_handle_t *xop;
+};
 
 void destroy_restore_state(struct restore_state *rstate);
 
