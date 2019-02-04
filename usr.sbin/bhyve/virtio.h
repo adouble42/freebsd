@@ -33,6 +33,8 @@
 
 #include <machine/atomic.h>
 
+#include "snapshot.h"
+
 /*
  * These are derived from several virtio specifications.
  *
@@ -363,10 +365,8 @@ struct virtio_consts {
 	uint64_t vc_hv_caps;		/* hypervisor-provided capabilities */
 	void	(*vc_pause)(void *);	/* called to pause device activity */
 	void	(*vc_resume)(void *);	/* called to resume device activity */
-	int	(*vc_snapshot)(void *, void *, size_t, size_t *);
-				/* called to save device state */
-	int	(*vc_restore)(void *, void *, size_t);
-				/* called to restore device state */
+	int	(*vc_snapshot)(void *, struct vm_snapshot_meta *);
+				/* called to save / restore device state */
 };
 
 /*
