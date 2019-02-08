@@ -80,7 +80,6 @@ struct vhpet {
 	uint64_t	config;		/* Configuration */
 	uint64_t	isr;		/* Interrupt Status */
 	uint32_t	countbase;	/* HPET counter base value */
-	uint32_t	countbase_off;	/* HPET counter base value offset */
 	sbintime_t	countbase_sbt;	/* uptime corresponding to base value */
 
 	struct {
@@ -157,11 +156,7 @@ vhpet_counter(struct vhpet *vhpet, sbintime_t *nowptr)
 	/* Since the countbase can be set by the guest at any point, we cannot
 	 * directly set it during snapshot/restore because it can be
 	 * overwritten.
-	 *
-	 * As such, we use the 'countbase_off' field here to offset the
-	 * countbase value with the amount it had when a snapshot was created.
 	 */
-	val += vhpet->countbase_off;
 	if (vhpet_counter_enabled(vhpet)) {
 		now = sbinuptime();
 		delta = now - vhpet->countbase_sbt;
@@ -378,8 +373,7 @@ vhpet_start_counting(struct vhpet *vhpet)
 		 * when it stopped counting.
 		 */
 		vhpet_start_timer(vhpet, i,
-		    vhpet->countbase + vhpet->countbase_off,
-		    vhpet->countbase_sbt);
+		    vhpet->countbase, vhpet->countbase_sbt);
 	}
 }
 
@@ -726,8 +720,6 @@ vhpet_init(struct vm *vm)
 	FREQ2BT(HPET_FREQ, &bt);
 	vhpet->freq_sbt = bttosbt(bt);
 
-	vhpet->countbase_off = 0; /* if the VM was not restored, offset is 0 */
-
 	pincount = vioapic_pincount(vm);
 	if (pincount >= 32)
 		allowed_irqs = 0xff000000;	/* irqs 24-31 */
@@ -786,11 +778,7 @@ vhpet_snapshot(struct vhpet *vhpet, void *buffer,
 		return (EINVAL);
 	}
 
-	/* Save the value of the current counter in 'countbase_off' so we can
-	 * use it after the restore to offset the counter with the proper
-	 * amount.
-	 */
-	vhpet->countbase_off = vhpet_counter(vhpet, NULL);
+	vhpet->countbase = vhpet_counter(vhpet, NULL);
 
 	error = copyout(vhpet, buffer, sizeof(struct vhpet));
 	if (error) {
@@ -827,7 +815,6 @@ vhpet_restore(struct vhpet *vhpet, void *buffer, size_t buf_size)
 	vhpet->config = old_vhpet->config;
 	vhpet->isr = old_vhpet->isr;
 	vhpet->countbase = old_vhpet->countbase;
-	vhpet->countbase_off = old_vhpet->countbase_off;
 	vhpet->countbase_sbt = old_vhpet->countbase_sbt;
 
 	for (i = 0; i < VHPET_NUM_TIMERS; i++) {
