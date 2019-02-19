@@ -49,7 +49,6 @@ enum snapshot_req {
 	STRUCT_VATPIT,
 	STRUCT_VPMTMR,
 	STRUCT_VRTC,
-	TSC_VALUE,
 };
 
 #ifdef _KERNEL

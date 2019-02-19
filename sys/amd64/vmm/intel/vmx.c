@@ -1272,8 +1272,6 @@ int
 vmx_set_tsc_offset(struct vmx *vmx, int vcpu, uint64_t offset)
 {
 	int error;
-	struct vm *vm = vmx->vm;
-	uint64_t restore_offset;
 
 	if ((vmx->cap[vcpu].proc_ctls & PROCBASED_TSC_OFFSET) == 0) {
 		vmx->cap[vcpu].proc_ctls |= PROCBASED_TSC_OFFSET;
@@ -1281,15 +1279,11 @@ vmx_set_tsc_offset(struct vmx *vmx, int vcpu, uint64_t offset)
 		VCPU_CTR0(vmx->vm, vcpu, "Enabling TSC offsetting");
 	}
 
-	error = vm_get_tsc_offset(vm, vcpu, &restore_offset, NULL);
+	error = vmwrite(VMCS_TSC_OFFSET, offset);
 	if (error != 0)
 		goto done;
 
-	error = vmwrite(VMCS_TSC_OFFSET, offset + restore_offset);
-	if (error != 0)
-		goto done;
-
-	error = vm_set_tsc_offset(vm, vcpu, NULL, &offset);
+	error = vm_set_tsc_offset(vmx->vm, vcpu, offset);
 
 done:
 	return (error);
@@ -4009,16 +4003,13 @@ vmx_restore_vmi(void *arg, void *buffer, size_t size)
 }
 
 static int
-vmx_restore_tsc(void *arg, int vcpu, uint64_t now)
+vmx_restore_tsc(void *arg, int vcpu, uint64_t offset)
 {
 	struct vmcs *vmcs;
 	struct vmx *vmx = (struct vmx *)arg;
-	struct vm *vm = vmx->vm;
-	int err, running, hostcpu;
-	uint64_t restore_offset, guest_offset;
+	int error, running, hostcpu;
 
 	KASSERT(arg != NULL, ("%s: arg was NULL", __func__));
-	err = 0;
 	vmcs = &vmx->vmcs[vcpu];
 
 	running = vcpu_is_running(vmx->vm, vcpu, &hostcpu);
@@ -4030,30 +4021,11 @@ vmx_restore_tsc(void *arg, int vcpu, uint64_t now)
 	if (!running)
 		VMPTRLD(vmcs);
 
-	if ((vmx->cap[vcpu].proc_ctls & PROCBASED_TSC_OFFSET) == 0) {
-		vmx->cap[vcpu].proc_ctls |= PROCBASED_TSC_OFFSET;
-		err = vmwrite(VMCS_PRI_PROC_BASED_CTLS, vmx->cap[vcpu].proc_ctls);
-		VCPU_CTR0(vmx->vm, vcpu, "Enabling TSC offsetting");
-	}
+	error = vmx_set_tsc_offset(vmx, vcpu, offset);
 
-	if (err)
-		goto done;
-
-	err = vm_get_tsc_offset(vm, vcpu, &restore_offset, &guest_offset);
-	if (err)
-		goto done;
-
-	restore_offset -= now;
-	err = vmwrite(VMCS_TSC_OFFSET, restore_offset + guest_offset);
-	if (err)
-		goto done;
-
-	err = vm_set_tsc_offset(vm, vcpu, &restore_offset, NULL);
-
-done:
 	if (!running)
 		VMCLEAR(vmcs);
-	return (err);
+	return (error);
 }
 
 struct vmm_ops vmm_ops_intel = {
