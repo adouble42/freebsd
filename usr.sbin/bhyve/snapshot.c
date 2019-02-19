@@ -100,7 +100,6 @@ const struct vm_snapshot_dev_info snapshot_devs[] = {
 };
 
 const struct vm_snapshot_kern_info snapshot_kern_structs[] = {
-	{ "tsc",	TSC_VALUE	},
 	{ "vhpet",	STRUCT_VHPET	},
 	{ "vm",		STRUCT_VM	},
 	{ "vmx",	STRUCT_VMX	},

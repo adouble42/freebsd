@@ -438,17 +438,13 @@ int vm_entry_intinfo(struct vm *vm, int vcpuid, uint64_t *info);
 
 int vm_get_intinfo(struct vm *vm, int vcpuid, uint64_t *info1, uint64_t *info2);
 
-/* * These functions are used to keep track of the guest's TSC offset. The
- * offset is used by the virutalization extensions to provide a consistent
- * value for the Time Stamp Counter to the guest.
+/*  Function used to keep track of the guest's TSC offset. The
+ *  offset is used by the virutalization extensions to provide a consistent
+ *  value for the Time Stamp Counter to the guest.
  *
  *  Return value is 0 on success and non-zero on failure.
  */
-int vm_get_tsc_offset(struct vm *vm, int vcpuid,
-		      uint64_t *restore_offset, uint64_t *guest_offset);
-
-int vm_set_tsc_offset(struct vm *vm, int vcpuid,
-		      uint64_t *restore_offset, uint64_t *guest_offset);
+int vm_set_tsc_offset(struct vm *vm, int vcpu_id, uint64_t offset);
 
 enum vm_reg_name vm_segment_name(int seg_encoding);
 
