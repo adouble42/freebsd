@@ -3984,8 +3984,6 @@ vmx_restore_vmi(void *arg, void *buffer, size_t size)
 	KASSERT(buffer != NULL, ("%s: buffer was NULL", __func__));
 
 	for (i = 0; i < VM_MAXCPU; i++) {
-		vmx->apic_page[i] = from_vmx->apic_page[i];
-
 //		vmx->pir_desc[i] = from_vmx->pir_desc[i];
 //		vmx->cap[i] = from_vmx->cap[i];
 //		vmx->state[i] = from_vmx->state[i];
