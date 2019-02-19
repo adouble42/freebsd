@@ -815,7 +815,6 @@ vhpet_restore(struct vhpet *vhpet, void *buffer, size_t buf_size)
 	vhpet->config = old_vhpet->config;
 	vhpet->isr = old_vhpet->isr;
 	vhpet->countbase = old_vhpet->countbase;
-	vhpet->countbase_sbt = old_vhpet->countbase_sbt;
 
 	for (i = 0; i < VHPET_NUM_TIMERS; i++) {
 		vhpet->timer[i].cap_config = old_vhpet->timer[i].cap_config;
@@ -833,8 +832,6 @@ vhpet_restore_time(struct vhpet *vhpet)
 {
 	if (vhpet_counter_enabled(vhpet))
 		vhpet_start_counting(vhpet);
-	else
-		vhpet->countbase_sbt = sbinuptime();
 
 	return (0);
 }
