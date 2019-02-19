@@ -1746,27 +1746,31 @@ vlapic_lapic_snapshot(void *arg, void *buffer, size_t buf_size, size_t *snapshot
 	return (0);
 }
 
-static void vlapic_restore_callout(struct vlapic *vlapic, uint32_t ccr)
+static void
+vlapic_reset_callout(struct vlapic *vlapic, uint32_t ccr)
 {
 	/* The implementation is similar to the one in the
 	 * `vlapic_icrtmr_write_handler` function
 	 */
 	sbintime_t sbt;
+	struct bintime bt;
 
 	VLAPIC_TIMER_LOCK(vlapic);
 
-	vlapic->timer_period_bt = vlapic->timer_freq_bt;
-	bintime_mul(&vlapic->timer_period_bt, ccr);
+	bt = vlapic->timer_freq_bt;
+	bintime_mul(&bt, ccr);
 
 	if (ccr != 0) {
 		binuptime(&vlapic->timer_fire_bt);
-		bintime_add(&vlapic->timer_fire_bt, &vlapic->timer_period_bt);
+		bintime_add(&vlapic->timer_fire_bt, &bt);
 
-		sbt = bttosbt(vlapic->timer_period_bt);
+		sbt = bttosbt(bt);
 		callout_reset_sbt(&vlapic->callout, sbt, 0,
 		    vlapic_callout_handler, vlapic, 0);
 	} else {
-		callout_stop(&vlapic->callout);
+		/* even if the CCR was 0, periodic timers should be reset */
+		if (vlapic_periodic_timer(vlapic))
+			callout_stop(&vlapic->callout);
 	}
 
 	VLAPIC_TIMER_UNLOCK(vlapic);
@@ -1800,6 +1804,7 @@ vlapic_restore(struct vlapic *vlapic, void *buffer, int vcpu)
 	vlapic->esr_firing = old_vlapic->esr_firing;
 
 	vlapic->timer_freq_bt = old_vlapic->timer_freq_bt;
+	vlapic->timer_period_bt = old_vlapic->timer_period_bt;
 
 	memcpy(vlapic->isrvec_stk, old_vlapic->isrvec_stk, ISRVEC_STK_SIZE * sizeof(uint8_t));
 	vlapic->isrvec_stk_top = old_vlapic->isrvec_stk_top;
@@ -1814,7 +1819,7 @@ vlapic_restore(struct vlapic *vlapic, void *buffer, int vcpu)
 	/* Reset the value of the 'timer_fire_bt' and the vlapic callout based
 	 * on the value of the current count register saved at snapshot time
 	 */
-	vlapic_restore_callout(vlapic, ccr);
+	vlapic_reset_callout(vlapic, ccr);
 
 	return (0);
 }
