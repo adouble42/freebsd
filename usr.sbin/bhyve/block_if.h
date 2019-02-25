@@ -41,7 +41,8 @@
 #include <sys/uio.h>
 #include <sys/unistd.h>
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
+
 
 /*
  * BLOCKIF_IOV_MAX is the maximum number of scatter/gather entries in

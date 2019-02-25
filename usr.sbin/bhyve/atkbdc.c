@@ -33,6 +33,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/types.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include <vmmapi.h>
 
@@ -54,7 +55,6 @@ __FBSDID("$FreeBSD$");
 #include "pci_lpc.h"
 #include "ps2kbd.h"
 #include "ps2mouse.h"
-#include "snapshot.h"
 
 #define	KBD_DATA_PORT		0x60
 

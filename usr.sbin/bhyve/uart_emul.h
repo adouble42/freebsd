@@ -31,7 +31,7 @@
 #ifndef _UART_EMUL_H_
 #define	_UART_EMUL_H_
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
 
 #define	UART_IO_BAR_SIZE	8
 

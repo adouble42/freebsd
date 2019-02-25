@@ -29,7 +29,7 @@
 #ifndef _ATKBDC_H_
 #define _ATKBDC_H_
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
 
 struct atkbdc_softc;
 struct vmctx;

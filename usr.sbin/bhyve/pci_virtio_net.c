@@ -36,9 +36,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/select.h>
 #include <sys/uio.h>
 #include <sys/ioctl.h>
+#include <machine/vmm_snapshot.h>
 #include <net/ethernet.h>
 #include <net/if.h> /* IFNAMSIZ */
-
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -55,7 +55,6 @@ __FBSDID("$FreeBSD$");
 #include "bhyverun.h"
 #include "pci_emul.h"
 #include "mevent.h"
-#include "snapshot.h"
 #include "virtio.h"
 #include "net_utils.h"
 #include "net_backends.h"

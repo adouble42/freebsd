@@ -32,6 +32,8 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
+#include <machine/vmm_snapshot.h>
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -43,7 +45,6 @@ __FBSDID("$FreeBSD$");
 
 #include "atkbdc.h"
 #include "console.h"
-#include "snapshot.h"
 
 /* keyboard device commands */
 #define	PS2KC_RESET_DEV		0xff
