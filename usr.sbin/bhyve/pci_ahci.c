@@ -2549,7 +2549,7 @@ done:
 }
 
 static int
-pci_ahci_snapshot_op(struct vm_snapshot_meta *meta)
+pci_ahci_snapshot(struct vm_snapshot_meta *meta)
 {
 	int i, j, ret;
 	void *bctx;
@@ -2690,62 +2690,6 @@ done:
 }
 
 static int
-pci_ahci_snapshot(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		  size_t buf_size, size_t *snapshot_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_SAVE,
-	};
-
-	ret = pci_ahci_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-	*snapshot_size = vm_get_snapshot_size(&meta);
-
-err:
-	return (ret);
-}
-
-static int
-pci_ahci_restore(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		  size_t buf_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_RESTORE,
-	};
-
-	ret = pci_ahci_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-err:
-	return (ret);
-}
-
-static int
 pci_ahci_pause(struct vmctx *ctx, struct pci_devinst *pi)
 {
 	struct pci_ahci_softc *sc;
@@ -2794,7 +2738,6 @@ struct pci_devemu pci_de_ahci = {
 	.pe_barwrite =	pci_ahci_write,
 	.pe_barread =	pci_ahci_read,
 	.pe_snapshot =	pci_ahci_snapshot,
-	.pe_restore =	pci_ahci_restore,
 	.pe_pause =	pci_ahci_pause,
 	.pe_resume =	pci_ahci_resume,
 };
@@ -2806,7 +2749,6 @@ struct pci_devemu pci_de_ahci_hd = {
 	.pe_barwrite =	pci_ahci_write,
 	.pe_barread =	pci_ahci_read,
 	.pe_snapshot =	pci_ahci_snapshot,
-	.pe_restore =	pci_ahci_restore,
 	.pe_pause =	pci_ahci_pause,
 	.pe_resume =	pci_ahci_resume,
 };
@@ -2818,7 +2760,6 @@ struct pci_devemu pci_de_ahci_cd = {
 	.pe_barwrite =	pci_ahci_write,
 	.pe_barread =	pci_ahci_read,
 	.pe_snapshot =	pci_ahci_snapshot,
-	.pe_restore =	pci_ahci_restore,
 	.pe_pause =	pci_ahci_pause,
 	.pe_resume =	pci_ahci_resume,
 };

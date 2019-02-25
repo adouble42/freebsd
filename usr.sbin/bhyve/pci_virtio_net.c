@@ -1057,6 +1057,5 @@ struct pci_devemu pci_de_vnet = {
 	.pe_barwrite =	vi_pci_write,
 	.pe_barread =	vi_pci_read,
 	.pe_snapshot =	vi_pci_snapshot,
-	.pe_restore =	vi_pci_restore,
 };
 PCI_EMUL_SET(pci_de_vnet);

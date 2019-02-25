@@ -40,6 +40,8 @@
 
 #include <assert.h>
 
+#include "snapshot.h"
+
 #define	PCI_BARMAX	PCIR_MAX_BAR_0	/* BAR registers in a Type 0 header */
 
 struct vmctx;
@@ -73,11 +75,7 @@ struct pci_devemu {
 				uint64_t offset, int size);
 
 	/* Save/restore device state */
-	int	(*pe_snapshot)(struct vmctx *ctx, struct pci_devinst *pi,
-				void *buffer, size_t buf_size,
-				size_t *snapshot_size);
-	int	(*pe_restore)(struct vmctx *ctx, struct pci_devinst *pi,
-				void *buffer, size_t buf_size);
+	int	(*pe_snapshot)(struct vm_snapshot_meta *meta);
 	int	(*pe_pause)(struct vmctx *ctx, struct pci_devinst *pi);
 	int	(*pe_resume)(struct vmctx *ctx, struct pci_devinst *pi);
 };
@@ -254,10 +252,7 @@ void	pci_walk_lintr(int bus, pci_lintr_cb cb, void *arg);
 void	pci_write_dsdt(void);
 uint64_t pci_ecfg_base(void);
 int	pci_bus_configured(int bus);
-int	pci_snapshot(struct vmctx *ctx, const char *dev_name, void *buffer,
-		     size_t buf_size, size_t *snapshot_size);
-int	pci_restore(struct vmctx *ctx, const char *dev_name, void *buffer,
-		    size_t buf_size);
+int	pci_snapshot(struct vm_snapshot_meta *meta);
 int	pci_pause(struct vmctx *ctx, const char *dev_name);
 int	pci_resume(struct vmctx *ctx, const char *dev_name);
 

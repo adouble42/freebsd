@@ -453,7 +453,7 @@ lpc_pirq_routed(void)
 }
 
 static int
-pci_lpc_snapshot_op(struct vm_snapshot_meta *meta)
+pci_lpc_snapshot(struct vm_snapshot_meta *meta)
 {
 	int unit, ret;
 	struct uart_softc *sc;
@@ -470,59 +470,6 @@ done:
 	return (ret);
 }
 
-static int
-pci_lpc_snapshot(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		  size_t buf_size, size_t *snapshot_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_SAVE,
-	};
-
-	ret = pci_lpc_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-	*snapshot_size = vm_get_snapshot_size(&meta);
-
-err:
-	return (ret);
-}
-
-static int
-pci_lpc_restore(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		size_t buf_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_RESTORE,
-	};
-
-	ret = pci_lpc_snapshot_op(&meta);
-
-	return (ret);
-}
-
 struct pci_devemu pci_de_lpc = {
 	.pe_emu =	"lpc",
 	.pe_init =	pci_lpc_init,
@@ -531,6 +478,5 @@ struct pci_devemu pci_de_lpc = {
 	.pe_barwrite =	pci_lpc_write,
 	.pe_barread =	pci_lpc_read,
 	.pe_snapshot =	pci_lpc_snapshot,
-	.pe_restore =	pci_lpc_restore,
 };
 PCI_EMUL_SET(pci_de_lpc);

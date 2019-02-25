@@ -2910,7 +2910,7 @@ done:
 }
 
 static int
-pci_xhci_snapshot_op(struct vm_snapshot_meta *meta)
+pci_xhci_snapshot(struct vm_snapshot_meta *meta)
 {
 	int i, j;
 	int ret;
@@ -3086,65 +3086,11 @@ done:
 	return (ret);
 }
 
-static int
-pci_xhci_snapshot(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		  size_t buf_size, size_t *snapshot_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_SAVE,
-	};
-
-	ret = pci_xhci_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-	*snapshot_size = vm_get_snapshot_size(&meta);
-
-err:
-	return (ret);
-}
-
-static int
-pci_xhci_restore(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		size_t buf_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_RESTORE,
-	};
-
-	ret = pci_xhci_snapshot_op(&meta);
-
-	return (ret);
-}
-
 struct pci_devemu pci_de_xhci = {
 	.pe_emu =	"xhci",
 	.pe_init =	pci_xhci_init,
 	.pe_barwrite =	pci_xhci_write,
 	.pe_barread =	pci_xhci_read,
 	.pe_snapshot =	pci_xhci_snapshot,
-	.pe_restore =	pci_xhci_restore
 };
 PCI_EMUL_SET(pci_de_xhci);
