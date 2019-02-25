@@ -2359,7 +2359,7 @@ e82545_init(struct vmctx *ctx, struct pci_devinst *pi, char *opts)
 }
 
 static int
-e82545_snapshot_op(struct vm_snapshot_meta *meta)
+e82545_snapshot(struct vm_snapshot_meta *meta)
 {
 	int i;
 	int ret;
@@ -2504,66 +2504,12 @@ done:
 	return (ret);
 }
 
-static int
-e82545_snapshot(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		  size_t buf_size, size_t *snapshot_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_SAVE,
-	};
-
-	ret = e82545_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-	*snapshot_size = vm_get_snapshot_size(&meta);
-
-err:
-	return (ret);
-}
-
-static int
-e82545_restore(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		size_t buf_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_RESTORE,
-	};
-
-	ret = e82545_snapshot_op(&meta);
-
-	return (ret);
-}
-
 struct pci_devemu pci_de_e82545 = {
 	.pe_emu = 	"e1000",
 	.pe_init =	e82545_init,
 	.pe_barwrite =	e82545_write,
 	.pe_barread =	e82545_read,
 	.pe_snapshot =	e82545_snapshot,
-	.pe_restore =	e82545_restore
 };
 PCI_EMUL_SET(pci_de_e82545);
 

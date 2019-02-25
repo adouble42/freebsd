@@ -1236,7 +1236,7 @@ main(int argc, char *argv[])
 
 	if (restore_file != NULL) {
 		fprintf(stdout, "Pausing pci devs...\r\n");
-		if (pause_devs(ctx) != 0) {
+		if (vm_pause_user_devs(ctx) != 0) {
 			fprintf(stderr, "Failed to pause PCI device state.\n");
 			exit(1);
 		}
@@ -1248,7 +1248,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stdout, "Restoring pci devs...\r\n");
-		if (restore_devs(ctx, &rstate) != 0) {
+		if (vm_restore_user_devs(ctx, &rstate) != 0) {
 			fprintf(stderr, "Failed to restore PCI device state.\n");
 			exit(1);
 		}
@@ -1260,7 +1260,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stdout, "Resuming pci devs...\r\n");
-		if (resume_devs(ctx) != 0) {
+		if (vm_resume_user_devs(ctx) != 0) {
 			fprintf(stderr, "Failed to resume PCI device state.\n");
 			exit(1);
 		}
@@ -1310,7 +1310,7 @@ main(int argc, char *argv[])
 	/*
 	 * checkpointing thread for communication with bhyvectl
 	 */
-	if(init_checkpoint_thread(ctx) < 0)
+	if (init_checkpoint_thread(ctx) < 0)
 		printf("Failed to start checkpoint thread!\r\n");
 
 	/*

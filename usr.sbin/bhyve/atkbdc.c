@@ -556,8 +556,8 @@ atkbdc_init(struct vmctx *ctx)
 	atkbdc_sc = sc;
 }
 
-static int
-pci_atkbdc_snapshot_op(struct vm_snapshot_meta *meta)
+int
+atkbdc_snapshot(struct vm_snapshot_meta *meta)
 {
 	int ret;
 
@@ -587,63 +587,6 @@ pci_atkbdc_snapshot_op(struct vm_snapshot_meta *meta)
 	ret = ps2mouse_snapshot(atkbdc_sc->ps2mouse_sc, meta);
 
 done:
-	return (ret);
-}
-
-int
-atkbdc_snapshot(struct vmctx *ctx, const char *dev_name, void *buffer,
-		size_t buf_size, size_t *snapshot_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = NULL,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_SAVE,
-	};
-
-	ret = pci_atkbdc_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-	*snapshot_size = vm_get_snapshot_size(&meta);
-
-err:
-	return (ret);
-}
-
-
-int
-atkbdc_restore(struct vmctx *ctx, const char *dev_name,
-	       void *buffer, size_t buf_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = NULL,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_RESTORE,
-	};
-
-	ret = pci_atkbdc_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-err:
 	return (ret);
 }
 

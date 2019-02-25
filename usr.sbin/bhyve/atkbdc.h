@@ -29,15 +29,14 @@
 #ifndef _ATKBDC_H_
 #define _ATKBDC_H_
 
+#include "snapshot.h"
+
 struct atkbdc_softc;
 struct vmctx;
 
 void atkbdc_init(struct vmctx *ctx);
 void atkbdc_event(struct atkbdc_softc *sc, int iskbd);
 
-int atkbdc_snapshot(struct vmctx *ctx, const char *dev_name, void *buffer,
-		    size_t buf_size, size_t *snapshot_size);
-int atkbdc_restore(struct vmctx *ctx, const char *dev_name,
-		   void *buffer, size_t buf_size);
+int atkbdc_snapshot(struct vm_snapshot_meta *meta);
 
 #endif /* _ATKBDC_H_ */

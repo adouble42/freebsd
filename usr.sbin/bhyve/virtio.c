@@ -902,8 +902,8 @@ done:
 	return (ret);
 }
 
-static int
-vi_pci_snapshot_op(struct vm_snapshot_meta *meta)
+int
+vi_pci_snapshot(struct vm_snapshot_meta *meta)
 {
 	int ret;
 	struct pci_devinst *pi;
@@ -937,58 +937,5 @@ vi_pci_snapshot_op(struct vm_snapshot_meta *meta)
 	}
 
 done:
-	return (ret);
-}
-
-int
-vi_pci_snapshot(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		size_t buf_size, size_t *snapshot_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_SAVE,
-	};
-
-	ret = vi_pci_snapshot_op(&meta);
-	if (ret != 0)
-		goto err;
-
-	*snapshot_size = vm_get_snapshot_size(&meta);
-
-err:
-	return (ret);
-}
-
-int
-vi_pci_restore(struct vmctx *ctx, struct pci_devinst *pi, void *buffer,
-		size_t buf_size)
-{
-	int ret;
-	struct vm_snapshot_meta meta = {
-		.ctx = ctx,
-		.dev_data = pi,
-
-		.buffer = {
-			.buf_start = buffer,
-			.buf_size = buf_size,
-			.buf = buffer,
-			.buf_rem = buf_size,
-		},
-
-		.op = VM_SNAPSHOT_RESTORE,
-	};
-
-	ret = vi_pci_snapshot_op(&meta);
-
 	return (ret);
 }
