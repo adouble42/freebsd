@@ -1260,7 +1260,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stdout, "Restoring kernel structs...\r\n");
-		if (restore_kernel_structs(ctx, &rstate) != 0) {
+		if (vm_restore_kern_structs(ctx, &rstate) != 0) {
 			fprintf(stderr, "Failed to restore kernel structs.\n");
 			exit(1);
 		}
