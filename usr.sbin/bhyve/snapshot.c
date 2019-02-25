@@ -550,7 +550,7 @@ restore_vm_mem(struct vmctx *ctx, struct restore_state *rstate)
 }
 
 int
-restore_kernel_structs(struct vmctx *ctx, struct restore_state *rstate)
+vm_restore_kern_structs(struct vmctx *ctx, struct restore_state *rstate)
 {
 	void *struct_ptr;
 	size_t struct_size;
@@ -681,7 +681,7 @@ vm_resume_user_devs(struct vmctx *ctx)
 }
 
 static int
-vm_snapshot_kern_data(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
+vm_snapshot_kern_structs(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
 {
 	int ret, i, error = 0;
 	size_t data_size, offset = 0;
@@ -988,7 +988,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 
 	vm_vcpu_lock_all(ctx);
 
-	ret = vm_snapshot_kern_data(ctx, kdata_fd, xop);
+	ret = vm_snapshot_kern_structs(ctx, kdata_fd, xop);
 	if (ret != 0) {
 		fprintf(stderr, "Failed to snapshot vm kernel data.\n");
 		error = -1;

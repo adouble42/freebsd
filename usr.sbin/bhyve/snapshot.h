@@ -54,7 +54,7 @@ int lookup_guest_ncpus(struct restore_state *rstate);
 
 
 int restore_vm_mem(struct vmctx *ctx, struct restore_state *rstate);
-int restore_kernel_structs(struct vmctx *ctx, struct restore_state *rstate);
+int vm_restore_kern_structs(struct vmctx *ctx, struct restore_state *rstate);
 
 int vm_restore_user_devs(struct vmctx *ctx, struct restore_state *rstate);
 int vm_pause_user_devs(struct vmctx *ctx);
