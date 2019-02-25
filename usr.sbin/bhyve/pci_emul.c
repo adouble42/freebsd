@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 #include <stdbool.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 #include <vmmapi.h>
 
 #include "acpi.h"

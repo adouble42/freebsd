@@ -57,11 +57,11 @@ __FBSDID("$FreeBSD$");
 #include <unistd.h>
 
 #include <machine/atomic.h>
+#include <machine/vmm_snapshot.h>
 
 #include "bhyverun.h"
 #include "mevent.h"
 #include "block_if.h"
-#include "snapshot.h"
 
 #define BLOCKIF_SIG	0xb109b109
 

@@ -41,6 +41,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/ata.h>
 #include <sys/endian.h>
 
+#include <machine/vmm_snapshot.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -59,7 +61,6 @@ __FBSDID("$FreeBSD$");
 #include "pci_emul.h"
 #include "ahci.h"
 #include "block_if.h"
-#include "snapshot.h"
 
 #define	DEF_PORTS	6	/* Intel ICH8 AHCI supports 6 ports */
 #define	MAX_PORTS	32	/* AHCI supports 32 ports */

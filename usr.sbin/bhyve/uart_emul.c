@@ -39,6 +39,8 @@ __FBSDID("$FreeBSD$");
 #include <capsicum_helpers.h>
 #endif
 
+#include <machine/vmm_snapshot.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -53,7 +55,6 @@ __FBSDID("$FreeBSD$");
 #include <sysexits.h>
 
 #include "mevent.h"
-#include "snapshot.h"
 #include "uart_emul.h"
 
 #define	COM1_BASE      	0x3F8

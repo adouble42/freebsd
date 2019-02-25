@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/mman.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 #include <vmmapi.h>
 
 #include <stdio.h>
@@ -50,7 +51,6 @@ __FBSDID("$FreeBSD$");
 #include "inout.h"
 #include "pci_emul.h"
 #include "rfb.h"
-#include "snapshot.h"
 #include "vga.h"
 
 /*

@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD$");
 #ifndef WITHOUT_CAPSICUM
 #include <capsicum_helpers.h>
 #endif
+#include <machine/vmm_snapshot.h>
+
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -65,7 +67,6 @@ __FBSDID("$FreeBSD$");
 #include "bhyverun.h"
 #include "pci_emul.h"
 #include "mevent.h"
-#include "snapshot.h"
 
 /* Hardware/register definitions XXX: move some to common code. */
 #define E82545_VENDOR_ID_INTEL			0x8086

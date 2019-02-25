@@ -32,6 +32,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/uio.h>
 
+#include <machine/vmm_snapshot.h>
+
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
@@ -39,7 +41,6 @@ __FBSDID("$FreeBSD$");
 
 #include "bhyverun.h"
 #include "pci_emul.h"
-#include "snapshot.h"
 #include "virtio.h"
 
 /*

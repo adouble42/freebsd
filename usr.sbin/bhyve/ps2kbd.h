@@ -31,7 +31,7 @@
 #ifndef _PS2KBD_H_
 #define	_PS2KBD_H_
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
 
 struct atkbdc_softc;
 

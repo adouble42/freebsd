@@ -35,7 +35,7 @@
 #include <sys/linker_set.h>
 #include <pthread.h>
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
 
 #define	USB_MAX_XFER_BLOCKS	8
 

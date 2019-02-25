@@ -31,7 +31,7 @@
 #ifndef	_VIRTIO_H_
 #define	_VIRTIO_H_
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
 
 /*
  * These are derived from several virtio specifications.

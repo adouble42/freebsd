@@ -49,6 +49,8 @@ __FBSDID("$FreeBSD$");
 #ifndef WITHOUT_CAPSICUM
 #include <capsicum_helpers.h>
 #endif
+#include <machine/vmm_snapshot.h>
+
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -67,7 +69,6 @@ __FBSDID("$FreeBSD$");
 #include "bhyverun.h"
 #include "pci_emul.h"
 #include "mevent.h"
-#include "snapshot.h"
 #include "virtio.h"
 
 #define VTNET_RINGSZ	1024

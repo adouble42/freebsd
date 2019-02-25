@@ -31,6 +31,8 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/time.h>
 
+#include <machine/vmm_snapshot.h>
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +44,6 @@ __FBSDID("$FreeBSD$");
 #include "usb_emul.h"
 #include "console.h"
 #include "bhyvegc.h"
-#include "snapshot.h"
 
 static int umouse_debug = 0;
 #define	DPRINTF(params) if (umouse_debug) printf params

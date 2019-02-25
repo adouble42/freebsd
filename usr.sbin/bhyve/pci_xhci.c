@@ -48,6 +48,8 @@ __FBSDID("$FreeBSD$");
 #include <pthread.h>
 #include <unistd.h>
 
+#include <machine/vmm_snapshot.h>
+
 #include <dev/usb/usbdi.h>
 #include <dev/usb/usb.h>
 #include <dev/usb/usb_freebsd.h>
@@ -56,7 +58,6 @@ __FBSDID("$FreeBSD$");
 #include "bhyverun.h"
 #include "pci_emul.h"
 #include "pci_xhci.h"
-#include "snapshot.h"
 #include "usb_emul.h"
 
 

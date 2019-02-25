@@ -37,6 +37,7 @@ __FBSDID("$FreeBSD$");
 #ifndef WITHOUT_CAPSICUM
 #include <machine/vmm_dev.h>
 #endif
+#include <machine/vmm_snapshot.h>
 #include <vmmapi.h>
 
 #include "bhyverun.h"
@@ -1315,7 +1316,7 @@ vm_get_snapshot_size(struct vm_snapshot_meta *meta)
 }
 
 int
-vm_snapshot_gaddr(void **addr_var, size_t gaddr_len, bool restore_null,
+vm_snapshot_gaddr(void **addr_var, size_t gaddr_len, int restore_null,
 		  struct vm_snapshot_meta *meta)
 {
 	int ret;

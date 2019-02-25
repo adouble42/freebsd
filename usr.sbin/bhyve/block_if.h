@@ -41,7 +41,8 @@
 #include <sys/uio.h>
 #include <sys/unistd.h>
 
-#include "snapshot.h"
+#include <machine/vmm_snapshot.h>
+
 
 #define BLOCKIF_IOV_MAX		33	/* not practical to be IOV_MAX */
 

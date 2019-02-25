@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +48,6 @@ __FBSDID("$FreeBSD$");
 #include "pci_emul.h"
 #include "pci_irq.h"
 #include "pci_lpc.h"
-#include "snapshot.h"
 #include "uart_emul.h"
 
 #define	IO_ICU1		0x20
