@@ -115,22 +115,6 @@ int vm_snapshot_gaddr(void **addr_var, size_t gaddr_len, bool restore_null,
 int vm_snapshot_buf_cmp(volatile void *data, size_t data_size,
 			      struct vm_snapshot_meta *meta);
 
-#define	SNAPSHOT_PART_OR_RET(DATA, BUFFER, BUF_SIZE, SNAP_LEN)                 \
-do {                                                                           \
-	int ret;                                                               \
-	ret = SNAPSHOT_PART(DATA, BUFFER, BUF_SIZE, SNAP_LEN);                 \
-	if (ret != 0)                                                          \
-		return (ret);                                                  \
-} while (0)
-
-#define	RESTORE_PART_OR_RET(DATA, BUFFER, BUF_SIZE)                            \
-do {                                                                           \
-	int ret;                                                               \
-	ret = RESTORE_PART(DATA, BUFFER, BUF_SIZE);                            \
-	if (ret != 0)                                                          \
-		return (ret);                                                  \
-} while (0)
-
 #define	SNAPSHOT_BUF_OR_LEAVE(DATA, LEN, META, RES, LABEL)			\
 do {										\
 	(RES) = vm_snapshot_buf((DATA), (LEN), (META));				\
