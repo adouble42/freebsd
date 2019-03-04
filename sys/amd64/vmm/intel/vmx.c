@@ -56,6 +56,8 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmm.h>
 #include <machine/vmm_dev.h>
 #include <machine/vmm_instruction_emul.h>
+#include <machine/vmm_snapshot.h>
+
 #include "vmm_lapic.h"
 #include "vmm_host.h"
 #include "vmm_ioport.h"
@@ -3798,206 +3800,138 @@ vmx_vlapic_cleanup(void *arg, struct vlapic *vlapic)
 }
 
 static int
-vmx_snapshot_vmi(void *arg, void *buffer, size_t buf_size, size_t *snapshot_size)
+vmx_snapshot_vmi(void *arg, struct vm_snapshot_meta *meta)
 {
-	struct vmx *vmx = arg;
-	int error;
+	struct vmx *vmx;
+	struct vmxctx *vmxctx;
+	struct pmap *new_pmap;
+	int i;
+	int ret;
+
+	vmx = arg;
 
 	KASSERT(vmx != NULL, ("%s: arg was NULL", __func__));
 
-	if (buf_size < sizeof(struct vmx)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-				__func__, buf_size, sizeof(struct vmx));
-		return (EINVAL);
-	}
-
-	error = copyout(vmx, buffer, sizeof(struct vmx));
-	if (error) {
-		printf("%s: failed to copy vmx data to user buffer", __func__);
-		*snapshot_size = 0;
-		return (error);
-	}
-
-	*snapshot_size = sizeof(struct vmx);
-	return (0);
-}
-
-static int
-vmx_snapshot_vmcx(void *arg, struct vmcx_state *vmcx, int vcpu)
-{
-	struct vmcs *vmcs;
-	struct vmx *vmx = (struct vmx *)arg;
-	int err = 0, running, hostcpu;
-
-	KASSERT(arg != NULL, ("%s: arg was NULL", __func__));
-	vmcs = &vmx->vmcs[vcpu];
-
-	running = vcpu_is_running(vmx->vm, vcpu, &hostcpu);
-	if (running && hostcpu != curcpu) {
-		printf("%s: %s%d is running", __func__, vm_name(vmx->vm), vcpu);
-		return (EINVAL);
-	}
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_CR0, &vmcx->guest_cr0);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_CR3, &vmcx->guest_cr3);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_CR4, &vmcx->guest_cr4);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_DR7, &vmcx->guest_dr7);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_RSP, &vmcx->guest_rsp);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_RIP, &vmcx->guest_rip);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_RFLAGS, &vmcx->guest_rflags);
-
-	/* Guest segments */
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_ES, &vmcx->guest_es);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_ES, &vmcx->guest_es_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_CS, &vmcx->guest_cs);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_CS, &vmcx->guest_cs_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_SS, &vmcx->guest_ss);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_SS, &vmcx->guest_ss_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_DS, &vmcx->guest_ds);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_DS, &vmcx->guest_ds_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_FS, &vmcx->guest_fs);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_FS, &vmcx->guest_fs_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_GS, &vmcx->guest_gs);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_GS, &vmcx->guest_gs_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_TR, &vmcx->guest_tr);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_TR, &vmcx->guest_tr_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_LDTR, &vmcx->guest_ldtr);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_LDTR, &vmcx->guest_ldtr_desc);
-
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_EFER, &vmcx->guest_efer);
-
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_IDTR, &vmcx->guest_idtr_desc);
-	err += vmcs_getdesc(vmcs, running, VM_REG_GUEST_GDTR, &vmcx->guest_gdtr_desc);
-
-	/* Guest page tables */
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_PDPTE0, &vmcx->guest_pdpte0);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_PDPTE1, &vmcx->guest_pdpte1);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_PDPTE2, &vmcx->guest_pdpte2);
-	err += vmcs_getreg(vmcs, running, VM_REG_GUEST_PDPTE3, &vmcx->guest_pdpte3);
-
-	/* Other guest state */
-	err += vmcs_getany(vmcs, running, VMCS_GUEST_IA32_SYSENTER_CS, &vmcx->guest_ia32_sysenter_cs);
-	err += vmcs_getany(vmcs, running, VMCS_GUEST_IA32_SYSENTER_ESP, &vmcx->guest_ia32_sysenter_esp);
-	err += vmcs_getany(vmcs, running, VMCS_GUEST_IA32_SYSENTER_EIP, &vmcx->guest_ia32_sysenter_eip);
-	err += vmcs_getany(vmcs, running, VMCS_GUEST_INTERRUPTIBILITY, &vmcx->guest_interruptibility);
-	err += vmcs_getany(vmcs, running, VMCS_GUEST_ACTIVITY, &vmcx->guest_activity);
-	err += vmcs_getany(vmcs, running, VMCS_GUEST_IA32_EFER, &vmcx->guest_ia32_efer);
-	err += vmcs_getany(vmcs, running, VMCS_ENTRY_CTLS, &vmcx->vmcs_entry_ctls);
-	err += vmcs_getany(vmcs, running, VMCS_EXIT_CTLS, &vmcx->vmcs_exit_ctls);
-
-	return (err);
-}
-
-static int
-vmx_restore_vmcx(void *arg, struct vmcx_state *vmcx, int vcpu)
-{
-	struct vmcs *vmcs;
-	struct vmx *vmx = (struct vmx *)arg;
-	int err = 0, running, hostcpu;
-
-	KASSERT(arg != NULL, ("%s: arg was NULL", __func__));
-	vmcs = &vmx->vmcs[vcpu];
-
-	running = vcpu_is_running(vmx->vm, vcpu, &hostcpu);
-	if (running && hostcpu != curcpu) {
-		printf("%s: %s%d is running", __func__, vm_name(vmx->vm), vcpu);
-		return (EINVAL);
-	}
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_CR0, vmcx->guest_cr0);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_CR3, vmcx->guest_cr3);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_CR4, vmcx->guest_cr4);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_DR7, vmcx->guest_dr7);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_RSP, vmcx->guest_rsp);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_RIP, vmcx->guest_rip);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_RFLAGS, vmcx->guest_rflags);
-
-	/* Guest segments */
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_ES, vmcx->guest_es);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_ES, &vmcx->guest_es_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_CS, vmcx->guest_cs);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_CS, &vmcx->guest_cs_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_SS, vmcx->guest_ss);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_SS, &vmcx->guest_ss_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_DS, vmcx->guest_ds);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_DS, &vmcx->guest_ds_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_FS, vmcx->guest_fs);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_FS, &vmcx->guest_fs_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_GS, vmcx->guest_gs);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_GS, &vmcx->guest_gs_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_TR, vmcx->guest_tr);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_TR, &vmcx->guest_tr_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_LDTR, vmcx->guest_ldtr);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_LDTR, &vmcx->guest_ldtr_desc);
-
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_EFER, vmcx->guest_efer);
-
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_IDTR, &vmcx->guest_idtr_desc);
-	err += vmcs_setdesc(vmcs, running, VM_REG_GUEST_GDTR, &vmcx->guest_gdtr_desc);
-
-	/* Guest page tables */
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_PDPTE0, vmcx->guest_pdpte0);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_PDPTE1, vmcx->guest_pdpte1);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_PDPTE2, vmcx->guest_pdpte2);
-	err += vmcs_setreg(vmcs, running, VM_REG_GUEST_PDPTE3, vmcx->guest_pdpte3);
-
-	/* Other guest state */
-	err += vmcs_setany(vmcs, running, VMCS_GUEST_IA32_SYSENTER_CS, vmcx->guest_ia32_sysenter_cs);
-	err += vmcs_setany(vmcs, running, VMCS_GUEST_IA32_SYSENTER_ESP, vmcx->guest_ia32_sysenter_esp);
-	err += vmcs_setany(vmcs, running, VMCS_GUEST_IA32_SYSENTER_EIP, vmcx->guest_ia32_sysenter_eip);
-	err += vmcs_setany(vmcs, running, VMCS_GUEST_INTERRUPTIBILITY, vmcx->guest_interruptibility);
-	err += vmcs_setany(vmcs, running, VMCS_GUEST_ACTIVITY, vmcx->guest_activity);
-	err += vmcs_setany(vmcs, running, VMCS_GUEST_IA32_EFER, vmcx->guest_ia32_efer);
-	err += vmcs_setany(vmcs, running, VMCS_ENTRY_CTLS, vmcx->vmcs_entry_ctls);
-	err += vmcs_setany(vmcs, running, VMCS_EXIT_CTLS, vmcx->vmcs_exit_ctls);
-
-	return (err);
-}
-
-static int
-vmx_restore_vmi(void *arg, void *buffer, size_t size)
-{
-	struct vmx *from_vmx = (struct vmx *)buffer;
-	struct vmx *vmx = (struct vmx *)arg;
-	int i;
-	struct pmap *new_pmap;
-
-	KASSERT(arg != NULL, ("%s: arg was NULL", __func__));
-	KASSERT(buffer != NULL, ("%s: buffer was NULL", __func__));
-
 	for (i = 0; i < VM_MAXCPU; i++) {
-//		vmx->pir_desc[i] = from_vmx->pir_desc[i];
-//		vmx->cap[i] = from_vmx->cap[i];
-//		vmx->state[i] = from_vmx->state[i];
+		SNAPSHOT_BUF_OR_LEAVE(vmx->guest_msrs[i],
+				      sizeof(vmx->guest_msrs[i]), meta, ret,
+				      done);
 
-		memcpy(vmx->guest_msrs[i], from_vmx->guest_msrs[i],
-				6 * sizeof(uint64_t));
+		vmxctx = &vmx->ctx[i];
 
-		/* save host information of the new host */
-		new_pmap = vmx->ctx[i].pmap;
+#if 0
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rdi, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rsi, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rdx, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rcx, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r8, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r9, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rax, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rbx, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rbp, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r10, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r11, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r12, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r13, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r14, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r15, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_cr2, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr0, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr1, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr2, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr3, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr6, meta, ret, done);
 
-		vmx->ctx[i] = from_vmx->ctx[i];
-		vmx->ctx[i].pmap = new_pmap;
+		/* host registers are not overwritten - no point */
 
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->inst_fail_status, meta, ret, done);
+		if (meta->op == VM_SNAPSHOT_SAVE)
+			vmx->eptgen[i] = vmxctx->pmap->pm_eptgen - 1;
+#endif
+		new_pmap = vmxctx->pmap;
+		SNAPSHOT_BUF_OR_LEAVE(vmxctx, sizeof(*vmxctx), meta, ret, done);
+		vmxctx->pmap = new_pmap;
 		vmx->eptgen[i] = new_pmap->pm_eptgen - 1;
 	}
 
-//	memcpy(vmx->msr_bitmap, from_vmx->msr_bitmap, PAGE_SIZE);
+done:
 	return (0);
+}
+
+static int
+vmx_snapshot_vmcx(void *arg, struct vm_snapshot_meta *meta, int vcpu)
+{
+	struct vmcs *vmcs;
+	struct vmx *vmx;
+	int err, run, hostcpu;
+
+	vmx = (struct vmx *)arg;
+	err = 0;
+
+	KASSERT(arg != NULL, ("%s: arg was NULL", __func__));
+	vmcs = &vmx->vmcs[vcpu];
+
+	run = vcpu_is_running(vmx->vm, vcpu, &hostcpu);
+	if (run && hostcpu != curcpu) {
+		printf("%s: %s%d is running", __func__, vm_name(vmx->vm), vcpu);
+		return (EINVAL);
+	}
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_CR0, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_CR3, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_CR4, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_DR7, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_RSP, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_RIP, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_RFLAGS, meta);
+
+	/* Guest segments */
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_ES, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_ES, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_CS, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_CS, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_SS, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_SS, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_DS, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_DS, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_FS, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_FS, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_GS, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_GS, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_TR, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_TR, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_LDTR, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_LDTR, meta);
+
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_EFER, meta);
+
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_IDTR, meta);
+	err += vmcs_snapshot_desc(vmcs, run, VM_REG_GUEST_GDTR, meta);
+
+	/* Guest page tables */
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_PDPTE0, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_PDPTE1, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_PDPTE2, meta);
+	err += vmcs_snapshot_reg(vmcs, run, VM_REG_GUEST_PDPTE3, meta);
+
+	/* Other guest state */
+	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_IA32_SYSENTER_CS, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_IA32_SYSENTER_ESP, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_IA32_SYSENTER_EIP, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_INTERRUPTIBILITY, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_ACTIVITY, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_IA32_EFER, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_ENTRY_CTLS, meta);
+	err += vmcs_snapshot_any(vmcs, run, VMCS_EXIT_CTLS, meta);
+
+	return (err);
 }
 
 static int
@@ -4044,8 +3978,6 @@ struct vmm_ops vmm_ops_intel = {
 	vmx_vlapic_init,
 	vmx_vlapic_cleanup,
 	vmx_snapshot_vmi,
-	vmx_restore_vmi,
 	vmx_snapshot_vmcx,
-	vmx_restore_vmcx,
 	vmx_restore_tsc,
 };

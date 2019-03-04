@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/smp.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmm_lapic.h"
 #include "vmm_ktr.h"
@@ -1661,91 +1662,6 @@ vlapic_get_LAPIC(struct vlapic *vlapic)
 	return vlapic->apic_page;
 }
 
-int
-vlapic_snapshot(void *arg, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	int i, error;
-	struct vm *vm = arg;
-	size_t snap_len;
-	uint8_t *buf;
-	struct vlapic *vlapic;
-	uint32_t ccr;
-
-	KASSERT(vm != NULL, ("%s: arg was NULL", __func__));
-
-	snap_len = VM_MAXCPU * (sizeof(struct vlapic) + sizeof(ccr));
-	buf = buffer;
-
-	if (buf_size < snap_len) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-		       __func__, buf_size, snap_len);
-		return (EINVAL);
-	}
-
-	for (i = 0; i < VM_MAXCPU; i++) {
-		vlapic = vm_lapic(vm, i);
-
-		error = copyout(vlapic, buf, sizeof(struct vlapic));
-		if (error) {
-			printf("%s: failed to copy vlapic data to user buffer",
-					__func__);
-			*snapshot_size = 0;
-			return (error);
-		}
-
-		buf += sizeof(struct vlapic);
-
-		/* Save the value of the current count register; reset the
-		 * callouts based on this value in the restore function
-		 */
-		ccr = vlapic_get_ccr(vlapic);
-		error = copyout(&ccr, buf, sizeof(ccr));
-		if (error) {
-			printf("%s: failed to copy ccr value to user buffer",
-					__func__);
-			*snapshot_size = 0;
-			return (error);
-		}
-
-		buf += sizeof(ccr);
-	}
-
-	*snapshot_size = snap_len;
-	return (0);
-}
-
-int
-vlapic_lapic_snapshot(void *arg, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	int i, error;
-	struct vm *vm = arg;
-	struct vlapic *vlapic;
-
-	KASSERT(vm != NULL, ("%s: arg was NULL", __func__));
-
-	if (buf_size < VM_MAXCPU * sizeof(struct LAPIC)) {
-		printf("%s: buffer size too small: %lu < %lu\n", __func__,
-				buf_size, VM_MAXCPU * sizeof(struct LAPIC));
-		return (EINVAL);
-	}
-
-	for (i = 0; i < VM_MAXCPU; i++) {
-		vlapic = vm_lapic(vm, i);
-
-		error = copyout(vlapic->apic_page, (struct LAPIC *)buffer + i,
-				sizeof(struct LAPIC));
-		if (error) {
-			printf("%s: failed to copy lapic data to user buffer",
-					__func__);
-			*snapshot_size = 0;
-			return (error);
-		}
-	}
-
-	*snapshot_size = VM_MAXCPU * sizeof(struct LAPIC);
-	return (0);
-}
-
 static void
 vlapic_reset_callout(struct vlapic *vlapic, uint32_t ccr)
 {
@@ -1777,60 +1693,90 @@ vlapic_reset_callout(struct vlapic *vlapic, uint32_t ccr)
 }
 
 int
-vlapic_restore(struct vlapic *vlapic, void *buffer, int vcpu)
+vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	struct vlapic *old_vlapic;
-	uint8_t *buf;
-	size_t vlapic_snap_len;
+	int i, ret;
+	struct vlapic *vlapic;
 	uint32_t ccr;
+	int vcpuid;
 
-	buf = buffer;
-	/* For each vlapic, an object of type 'struct vlapic' and the value
-	 * of the current count register are saved
-	 */
-	vlapic_snap_len = sizeof(struct vlapic) + sizeof(ccr);
-	/* Skip previous vlapics */
-	buf += vcpu * vlapic_snap_len;
+	KASSERT(vm != NULL, ("%s: arg was NULL", __func__));
 
-	old_vlapic = (struct vlapic *)buf;
+	ret = 0;
 
-	if (vlapic->vcpuid != old_vlapic->vcpuid) {
-		printf("%s: vcpuid mismatch %d != %d.\n", __func__,
-				vlapic->vcpuid, old_vlapic->vcpuid);
-		return (EINVAL);
+	for (i = 0; i < VM_MAXCPU; i++) {
+		vlapic = vm_lapic(vm, i);
+
+		vcpuid = vlapic->vcpuid;
+		SNAPSHOT_VAR_OR_LEAVE(vcpuid, meta, ret, done);
+		/* at restore time, vcpuid is overwritten with the old value */
+		if (vcpuid != vlapic->vcpuid) {
+			printf("%s: vcpuid mismatch %d != %d.\n", __func__,
+					vlapic->vcpuid, vcpuid);
+			ret = (EINVAL);
+			goto done;
+		}
+
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->esr_pending, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->esr_firing, meta, ret, done);
+
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_freq_bt.sec,
+				      meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_freq_bt.frac,
+				      meta, ret, done);
+
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_period_bt.sec,
+				      meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_period_bt.frac,
+				      meta, ret, done);
+
+
+		SNAPSHOT_BUF_OR_LEAVE(vlapic->isrvec_stk,
+				      sizeof(vlapic->isrvec_stk),
+				      meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->isrvec_stk_top, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->boot_state, meta, ret, done);
+
+		SNAPSHOT_VAR_OR_LEAVE(vlapic->svr_last, meta, ret, done);
+		SNAPSHOT_BUF_OR_LEAVE(vlapic->lvt_last,
+				      sizeof(vlapic->lvt_last),
+				      meta, ret, done);
+
+		if (meta->op == VM_SNAPSHOT_SAVE)
+			ccr = vlapic_get_ccr(vlapic);
+
+		SNAPSHOT_VAR_OR_LEAVE(ccr, meta, ret, done);
+
+		if (meta->op == VM_SNAPSHOT_RESTORE) {
+			/* Reset the value of the 'timer_fire_bt' and the vlapic
+			 * callout based on the value of the current count
+			 * register saved when the VM snapshot was created
+			 */
+			vlapic_reset_callout(vlapic, ccr);
+		}
 	}
 
-	vlapic->esr_pending = old_vlapic->esr_pending;
-	vlapic->esr_firing = old_vlapic->esr_firing;
-
-	vlapic->timer_freq_bt = old_vlapic->timer_freq_bt;
-	vlapic->timer_period_bt = old_vlapic->timer_period_bt;
-
-	memcpy(vlapic->isrvec_stk, old_vlapic->isrvec_stk, ISRVEC_STK_SIZE * sizeof(uint8_t));
-	vlapic->isrvec_stk_top = old_vlapic->isrvec_stk_top;
-	vlapic->boot_state = old_vlapic->boot_state;
-
-	vlapic->svr_last = old_vlapic->svr_last;
-	memcpy(vlapic->lvt_last, old_vlapic->lvt_last, (VLAPIC_MAXLVT_INDEX + 1) * sizeof(uint32_t));
-
-	buf += sizeof(struct vlapic);
-	memcpy(&ccr, buf, sizeof(ccr));
-
-	/* Reset the value of the 'timer_fire_bt' and the vlapic callout based
-	 * on the value of the current count register saved at snapshot time
-	 */
-	vlapic_reset_callout(vlapic, ccr);
-
-	return (0);
+done:
+	return (ret);
 }
 
 int
-vlapic_lapic_restore(struct vlapic *vlapic, void *buffer, int vcpu)
+vlapic_lapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	struct LAPIC *old_lapic = (struct LAPIC *)buffer + vcpu;
+	int i, ret;
+	struct vlapic *vlapic;
 
-	memcpy(vlapic->apic_page, old_lapic, sizeof(struct LAPIC));
+	KASSERT(vm != NULL, ("%s: arg was NULL", __func__));
 
-	return (0);
+	ret = 0;
+
+	for (i = 0; i < VM_MAXCPU; i++) {
+		vlapic = vm_lapic(vm, i);
+
+		SNAPSHOT_BUF_OR_LEAVE(vlapic->apic_page, PAGE_SIZE,
+				      meta, ret, done);
+	}
+
+done:
+	return (ret);
 }
-

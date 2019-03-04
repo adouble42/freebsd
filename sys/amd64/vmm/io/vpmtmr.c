@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vpmtmr.h"
 
@@ -105,51 +106,12 @@ vpmtmr_handler(struct vm *vm, int vcpuid, bool in, int port, int bytes,
 }
 
 int
-vpmtmr_snapshot(struct vpmtmr *vpmtmr, void *buffer,
-		size_t buf_size, size_t *snapshot_size)
+vpmtmr_snapshot(struct vpmtmr *vpmtmr, struct vm_snapshot_meta *meta)
 {
-	printf("%s\n", __func__);
-	int error;
+	int ret;
 
-	if (buf_size < sizeof(struct vpmtmr)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-			__func__, buf_size, sizeof(struct vpmtmr));
-		return (EINVAL);
-	}
+	SNAPSHOT_VAR_OR_LEAVE(vpmtmr->baseval, meta, ret, done);
 
-	error = copyout(vpmtmr, buffer, sizeof(struct vpmtmr));
-	if (error) {
-		printf("%s: failed to copy vpmtmr data to user buffer\n",
-			__func__);
-		return (EINVAL);
-	}
-	*snapshot_size = sizeof(struct vpmtmr);
-
-	return (0);
-}
-
-int
-vpmtmr_restore(struct vpmtmr *vpmtmr, void *buffer, size_t buf_size)
-{
-	printf("%s\n", __func__);
-	struct vpmtmr *old_vpmtmr;
-
-	if (buffer == NULL) {
-		printf("%s: buffer was NULL\n", __func__);
-		return (EINVAL);
-	}
-
-	if (buf_size < sizeof(struct vpmtmr)) {
-		printf("%s: restore buffer size mismatch: %lu != %lu\n",
-			__func__, buf_size, sizeof(struct vpmtmr));
-		return (EINVAL);
-	}
-
-	old_vpmtmr = (struct vpmtmr *)buffer;
-
-	vpmtmr->freq_sbt = old_vpmtmr->freq_sbt;
-	vpmtmr->baseuptime = old_vpmtmr->baseuptime;
-	vpmtmr->baseval = old_vpmtmr->baseval;
-
-	return (0);
+done:
+	return (ret);
 }

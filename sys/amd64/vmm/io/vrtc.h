@@ -34,6 +34,7 @@
 #include <isa/isareg.h>
 
 struct vrtc;
+struct vm_snapshot_meta;
 
 struct vrtc *vrtc_init(struct vm *vm);
 void vrtc_cleanup(struct vrtc *vrtc);
@@ -49,8 +50,6 @@ int vrtc_addr_handler(struct vm *vm, int vcpuid, bool in, int port, int bytes,
 int vrtc_data_handler(struct vm *vm, int vcpuid, bool in, int port, int bytes,
     uint32_t *val);
 
-int vrtc_snapshot(struct vrtc *vrtc, void *buffer, size_t buf_size,
-    size_t *snapshot_size);
-int vrtc_restore(struct vrtc *vrtc, void *buffer, size_t buf_size);
+int vrtc_snapshot(struct vrtc *vrtc, struct vm_snapshot_meta *meta);
 
 #endif

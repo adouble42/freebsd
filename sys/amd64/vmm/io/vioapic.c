@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD$");
 
 #include <x86/apicreg.h>
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmm_ktr.h"
 #include "vmm_lapic.h"
@@ -501,59 +502,18 @@ vioapic_pincount(struct vm *vm)
 }
 
 int
-vioapic_snapshot(struct vioapic *vioapic, void *buffer,
-		 size_t buf_size, size_t *snapshot_size)
+vioapic_snapshot(struct vioapic *vioapic, struct vm_snapshot_meta *meta)
 {
-	int error;
-
-	if (buf_size < sizeof(struct vioapic)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-				__func__, buf_size, sizeof(struct vioapic));
-		return (EINVAL);
-	}
-
-	error = copyout(vioapic, buffer, sizeof(struct vioapic));
-	if (error) {
-		printf("%s: failed to copy vioapic data to user buffer\n",
-				__func__);
-		*snapshot_size = 0;
-		return (error);
-	}
-
-	*snapshot_size = sizeof(struct vioapic);
-	return (0);
-}
-
-int
-vioapic_restore(struct vioapic *vioapic, void *buffer, size_t buf_size)
-{
+	int ret;
 	int i;
-	struct vioapic *old_vioapic;
 
-	if (buffer == NULL) {
-		printf("%s: buffer was NULL\n", __func__);
-		return (EINVAL);
+	SNAPSHOT_VAR_OR_LEAVE(vioapic->ioregsel, meta, ret, done);
+
+	for (i = 0; i < nitems(vioapic->rtbl); i++) {
+		SNAPSHOT_VAR_OR_LEAVE(vioapic->rtbl[i].reg, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vioapic->rtbl[i].acnt, meta, ret, done);
 	}
 
-	if (buf_size != sizeof(struct vioapic)) {
-		printf("%s: restore buffer size mismatch: %lu != %lu\n",
-				__func__, buf_size, sizeof(struct vioapic));
-		return (EINVAL);
-	}
-
-	old_vioapic = (struct vioapic *)buffer;
-
-	/* XXX
-	 * if (vioapic->id != old_vioapic->id) {
-	 * 	printf("%s: vioapic id mismatch\n", __func__);
-	 * 	return (EINVAL);
-	 * }
-	 */
-
-	vioapic->ioregsel = old_vioapic->ioregsel;
-	for (i = 0; i < REDIR_ENTRIES; i++) {
-		vioapic->rtbl[i] = old_vioapic->rtbl[i];
-	}
-
-	return (0);
+done:
+	return (ret);
 }

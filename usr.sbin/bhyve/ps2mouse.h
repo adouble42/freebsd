@@ -31,9 +31,8 @@
 #ifndef _PS2MOUSE_H_
 #define	_PS2MOUSE_H_
 
-#include <machine/vmm_snapshot.h>
-
 struct atkbdc_softc;
+struct vm_snapshot_meta; 
 
 struct ps2mouse_softc *ps2mouse_init(struct atkbdc_softc *sc);
 

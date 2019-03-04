@@ -40,13 +40,13 @@
 
 #include <assert.h>
 
-#include <machine/vmm_snapshot.h>
 
 #define	PCI_BARMAX	PCIR_MAX_BAR_0	/* BAR registers in a Type 0 header */
 
 struct vmctx;
 struct pci_devinst;
 struct memory_region;
+struct vm_snapshot_meta;
 
 struct pci_devemu {
 	char      *pe_emu;		/* Name of device emulation */

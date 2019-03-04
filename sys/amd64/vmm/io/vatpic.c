@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/ic/i8259.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmm_ktr.h"
 #include "vmm_lapic.h"
@@ -810,71 +811,39 @@ vatpic_cleanup(struct vatpic *vatpic)
 }
 
 int
-vatpic_snapshot(struct vatpic *vatpic, void *buffer,
-			size_t buf_size, size_t *snapshot_size)
+vatpic_snapshot(struct vatpic *vatpic, struct vm_snapshot_meta *meta)
 {
-	int error;
+	int ret;
+	int i;
+	struct atpic *atpic;
 
-	if (buf_size < sizeof(struct vatpic)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-				__func__, buf_size, sizeof(struct vatpic));
-		return (EINVAL);
+	for (i = 0; i < nitems(vatpic->atpic); i++) {
+		atpic = &vatpic->atpic[i];
+
+		SNAPSHOT_VAR_OR_LEAVE(atpic->ready, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->icw_num, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->rd_cmd_reg, meta, ret, done);
+
+		SNAPSHOT_VAR_OR_LEAVE(atpic->aeoi, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->poll, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->rotate, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->sfn, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->irq_base, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->request, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->service, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->mask, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->smm, meta, ret, done);
+
+		SNAPSHOT_BUF_OR_LEAVE(atpic->acnt, sizeof(atpic->acnt),
+				      meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->lowprio, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(atpic->intr_raised, meta, ret, done);
+
 	}
 
-	error = copyout(vatpic, buffer, sizeof(struct vatpic));
-	if (error) {
-		printf("%s: failed to copy vatpic data to user buffer\n",
-				__func__);
-		return (error);
-	}
+	SNAPSHOT_BUF_OR_LEAVE(vatpic->elc, sizeof(vatpic->elc),
+			      meta, ret, done);
 
-	*snapshot_size = sizeof(struct vatpic);
-	return (0);
-}
-
-int
-vatpic_restore(struct vatpic *vatpic, void *buffer, size_t buf_size)
-{
-	int i, j;
-
-	struct vatpic *old_vatpic;
-	if (buffer == NULL) {
-		printf("%s: buffer was NULL\n", __func__);
-		return (EINVAL);
-	}
-
-	if (buf_size != sizeof(struct vatpic)) {
-		printf("%s: restore buffer size mismatch: %lu != %lu\n",
-				__func__, buf_size, sizeof(struct vatpic));
-		return (EINVAL);
-	}
-
-	old_vatpic = (struct vatpic *)buffer;
-
-	vatpic->mtx = old_vatpic->mtx;
-
-	for (i = 0; i < 2; i++) {
-		vatpic->atpic[i].ready = old_vatpic->atpic[i].ready;
-		vatpic->atpic[i].icw_num = old_vatpic->atpic[i].icw_num;
-		vatpic->atpic[i].rd_cmd_reg = old_vatpic->atpic[i].rd_cmd_reg;
-
-		vatpic->atpic[i].aeoi = old_vatpic->atpic[i].aeoi;
-		vatpic->atpic[i].poll = old_vatpic->atpic[i].poll;
-		vatpic->atpic[i].rotate = old_vatpic->atpic[i].rotate;
-		vatpic->atpic[i].sfn = old_vatpic->atpic[i].sfn;
-		vatpic->atpic[i].irq_base = old_vatpic->atpic[i].irq_base;
-		vatpic->atpic[i].request = old_vatpic->atpic[i].request;
-		vatpic->atpic[i].service = old_vatpic->atpic[i].service;
-		vatpic->atpic[i].mask = old_vatpic->atpic[i].mask;
-		vatpic->atpic[i].smm = old_vatpic->atpic[i].smm;
-
-		for (j = 0; j < 8; j++)
-			vatpic->atpic[i].acnt[j] = old_vatpic->atpic[i].acnt[j];
-		vatpic->atpic[i].lowprio = old_vatpic->atpic[i].lowprio;
-		vatpic->atpic[i].intr_raised = old_vatpic->atpic[i].intr_raised;
-
-		vatpic->elc[i] = old_vatpic->elc[i];
-	}
-
-	return (0);
+done:
+	return (ret);
 }

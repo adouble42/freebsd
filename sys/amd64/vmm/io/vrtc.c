@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysctl.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include <isa/rtc.h>
 
@@ -1021,58 +1022,41 @@ vrtc_cleanup(struct vrtc *vrtc)
 }
 
 int
-vrtc_snapshot(struct vrtc *vrtc, void *buffer, size_t buf_size,
-		size_t *snapshot_size)
+vrtc_snapshot(struct vrtc *vrtc, struct vm_snapshot_meta *meta)
 {
-	printf("%s\n", __func__);
-	int error;
-
-	if (buf_size < sizeof(struct vrtc)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-			__func__, buf_size, sizeof(struct vrtc));
-		return (EINVAL);
-	}
-
-	error = copyout(vrtc, buffer, sizeof(struct vrtc));
-	if (error) {
-		printf("%s: failed to copy vrtc data to user buffer\n",
-			__func__);
-		return (error);
-	}
-	*snapshot_size = sizeof(struct vrtc);
-
-	return (0);
-}
-
-int
-vrtc_restore(struct vrtc *vrtc, void *buffer, size_t buf_size)
-{
-	printf("%s\n", __func__);
-	struct vrtc *old_vrtc;
-
-	if (buffer == NULL) {
-		printf("%s: buffer was NULL\n", __func__);
-		return (EINVAL);
-	}
-
-	if (buf_size != sizeof(struct vrtc)) {
-		printf("%s: restore buffer size mismatch: %lu != %lu\n",
-			__func__, buf_size, sizeof(struct vrtc));
-		return (EINVAL);
-	}
-
-	old_vrtc = (struct vrtc *)buffer;
+	int ret;
 
 	VRTC_LOCK(vrtc);
 
-	vrtc->addr = old_vrtc->addr;
-	vrtc->base_uptime = sbinuptime();
-	vrtc->base_rtctime = old_vrtc->base_rtctime;
-	vrtc->rtcdev = old_vrtc->rtcdev;
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->addr, meta, ret, done);
+	if (meta->op == VM_SNAPSHOT_RESTORE)
+		vrtc->base_uptime = sbinuptime();
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->base_rtctime, meta, ret, done);
+
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.sec, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.alarm_sec, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.min, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.alarm_min, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.hour, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.alarm_hour, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.day_of_week, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.day_of_month, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.month, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.year, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.reg_a, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.reg_b, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.reg_c, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.reg_d, meta, ret, done);
+	SNAPSHOT_BUF_OR_LEAVE(vrtc->rtcdev.nvram, sizeof(vrtc->rtcdev.nvram),
+			      meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vrtc->rtcdev.century, meta, ret, done);
+	SNAPSHOT_BUF_OR_LEAVE(vrtc->rtcdev.nvram2, sizeof(vrtc->rtcdev.nvram2),
+			      meta, ret, done);
 
 	vrtc_callout_reset(vrtc, vrtc_freq(vrtc));
 
 	VRTC_UNLOCK(vrtc);
 
-	return (0);
+done:
+	return (ret);
 }

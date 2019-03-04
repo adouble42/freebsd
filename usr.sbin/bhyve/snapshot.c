@@ -566,30 +566,66 @@ restore_vm_mem(struct vmctx *ctx, struct restore_state *rstate)
 	return vm_restore_mem(ctx, rstate->vmmem_fd, rstate->vmmem_len);
 }
 
-int
-vm_restore_kern_structs(struct vmctx *ctx, struct restore_state *rstate)
+static int
+vm_restore_kern_struct(struct vmctx *ctx, struct restore_state *rstate,
+		       const struct vm_snapshot_kern_info *info)
 {
 	void *struct_ptr;
 	size_t struct_size;
 	int ret;
+	struct vm_snapshot_meta *meta;
+
+	struct_ptr = lookup_struct(info->req, rstate, &struct_size);
+	if (struct_ptr == NULL) {
+		fprintf(stderr, "%s: Failed to lookup struct %s\r\n",
+			__func__, info->struct_name);
+		ret = -1;
+		goto done;
+	}
+
+	if (struct_size == 0) {
+		fprintf(stderr, "%s: Kernel struct size was 0 for: %s\r\n",
+			__func__, info->struct_name);
+		ret = -1;
+		goto done;
+	}
+
+	meta = &(struct vm_snapshot_meta) {
+		.ctx = ctx,
+		.dev_name = info->struct_name,
+		.dev_req  = info->req,
+
+		.buffer.buf_start = struct_ptr,
+		.buffer.buf_size = struct_size,
+
+		.buffer.buf = struct_ptr,
+		.buffer.buf_rem = struct_size,
+
+		.op = VM_SNAPSHOT_RESTORE,
+	};
+
+	ret = vm_snapshot_req(meta);
+	if (ret != 0) {
+		fprintf(stderr, "%s: Failed to restore struct: %s\r\n",
+			__func__, info->struct_name);
+		goto done;
+	}
+
+done:
+	return (ret);
+}
+
+int
+vm_restore_kern_structs(struct vmctx *ctx, struct restore_state *rstate)
+{
+	int ret;
 	int i;
 
 	for (i = 0; i < nitems(snapshot_kern_structs); i++) {
-		struct_ptr = lookup_struct(snapshot_kern_structs[i].req, rstate,
-					   &struct_size);
-		if (struct_ptr == NULL) {
-			fprintf(stderr, "%s: Failed to lookup struct %s\r\n",
-				__func__, snapshot_kern_structs[i].struct_name);
-			return (-1);
-		}
-
-		ret = vm_restore_req(ctx, snapshot_kern_structs[i].req,
-				     struct_ptr, struct_size);
-		if (ret != 0) {
-			fprintf(stderr, "%s: Failed to restore struct: %s\r\n",
-				__func__, snapshot_kern_structs[i].struct_name);
+		ret = vm_restore_kern_struct(ctx, rstate,
+					     &snapshot_kern_structs[i]);
+		if (ret != 0)
 			return (ret);
-		}
 	}
 
 	return (0);
@@ -698,49 +734,89 @@ vm_resume_user_devs(struct vmctx *ctx)
 }
 
 static int
+vm_snapshot_kern_struct(int data_fd, xo_handle_t *xop, const char *array_key,
+			struct vm_snapshot_meta *meta, off_t *offset)
+{
+	int ret;
+	size_t data_size;
+	ssize_t write_cnt;
+
+	ret = vm_snapshot_req(meta);
+	if (ret != 0) {
+		fprintf(stderr, "%s: Failed to snapshot struct %s\r\n",
+			__func__, meta->dev_name);
+		ret = -1;
+		goto done;
+	}
+
+	data_size = vm_get_snapshot_size(meta);
+
+	write_cnt = write(data_fd, meta->buffer.buf_start, data_size);
+	if (write_cnt != data_size) {
+		perror("Failed to write all snapshotted data.");
+		ret = -1;
+		goto done;
+	}
+
+	/* Write metadata. */
+	xo_open_instance_h(xop, array_key);
+	xo_emit_h(xop, "{:debug_name/%s}\n", meta->dev_name);
+	xo_emit_h(xop, "{:" JSON_SNAPSHOT_REQ_KEY "/%d}\n",
+		  meta->dev_req);
+	xo_emit_h(xop, "{:" JSON_SIZE_KEY "/%lu}\n", data_size);
+	xo_emit_h(xop, "{:" JSON_FILE_OFFSET_KEY "/%lu}\n", *offset);
+	xo_close_instance_h(xop, JSON_STRUCT_ARR_KEY);
+
+	*offset += data_size;
+
+done:
+	return (ret);
+}
+
+static int
 vm_snapshot_kern_structs(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
 {
-	int ret, i, error = 0;
-	size_t data_size, offset = 0;
-	char *buffer = NULL;
+	int ret, i, error;
+	size_t offset, buf_size;
+	char *buffer;
+	struct vm_snapshot_meta *meta;
+
+	error = 0;
+	offset = 0;
+	buf_size = SNAPSHOT_BUFFER_SIZE;
 
 	buffer = malloc(SNAPSHOT_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
+		error = ENOMEM;
 		perror("Failed to allocate memory for snapshot buffer");
 		goto err_vm_snapshot_kern_data;
 	}
 
+	meta = &(struct vm_snapshot_meta) {
+		.ctx = ctx,
+
+		.buffer.buf_start = buffer,
+		.buffer.buf_size = buf_size,
+
+		.op = VM_SNAPSHOT_SAVE,
+	};
+
 	xo_open_list_h(xop, JSON_STRUCT_ARR_KEY);
 	for (i = 0; i < nitems(snapshot_kern_structs); i++) {
-		memset(buffer, 0, SNAPSHOT_BUFFER_SIZE);
-		data_size = 0;
-		ret = vm_snapshot_req(ctx, snapshot_kern_structs[i].req, buffer,
-				      SNAPSHOT_BUFFER_SIZE, &data_size);
+		meta->dev_name = snapshot_kern_structs[i].struct_name;
+		meta->dev_req  = snapshot_kern_structs[i].req;
 
+		memset(meta->buffer.buf_start, meta->buffer.buf_size, 0);
+		meta->buffer.buf = meta->buffer.buf_start;
+		meta->buffer.buf_rem = meta->buffer.buf_size;
+
+		fprintf(stderr, "%s: snapshot: %s\r\n", __func__, snapshot_kern_structs[i].struct_name);
+		ret = vm_snapshot_kern_struct(data_fd, xop, JSON_DEV_ARR_KEY,
+					      meta, &offset);
 		if (ret != 0) {
-			fprintf(stderr, "%s: Failed to snapshot struct %s; ret=%d\r\n",
-				__func__, snapshot_kern_structs[i].struct_name, ret);
 			error = -1;
 			goto err_vm_snapshot_kern_data;
 		}
-
-		ret = write(data_fd, buffer, data_size);
-		if (ret != data_size) {
-			perror("Failed to write all snapshotted data.");
-			error = -1;
-			goto err_vm_snapshot_kern_data;
-		}
-
-		/* Write metadata. */
-		xo_open_instance_h(xop, JSON_STRUCT_ARR_KEY);
-		xo_emit_h(xop, "{:debug_name/%s}\n", snapshot_kern_structs[i].struct_name);
-		xo_emit_h(xop, "{:" JSON_SNAPSHOT_REQ_KEY "/%d}\n",
-			snapshot_kern_structs[i].req);
-		xo_emit_h(xop, "{:" JSON_SIZE_KEY "/%lu}\n", data_size);
-		xo_emit_h(xop, "{:" JSON_FILE_OFFSET_KEY "/%lu}\n", offset);
-		xo_close_instance_h(xop, JSON_STRUCT_ARR_KEY);
-
-		offset += data_size;
 	}
 	xo_close_list_h(xop, JSON_STRUCT_ARR_KEY);
 
@@ -827,7 +903,7 @@ vm_snapshot_user_devs(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
 {
 	int ret, i;
 	off_t offset;
-	void *buffer = NULL;
+	void *buffer;
 	size_t buf_size;
 	struct vm_snapshot_meta *meta;
 
@@ -1270,7 +1346,7 @@ vm_snapshot_buf_err(const char *bufname, const enum vm_snapshot_op op)
 
 int
 vm_snapshot_buf(volatile void *data, size_t data_size,
-	     struct vm_snapshot_meta *meta)
+		struct vm_snapshot_meta *meta)
 {
 	struct vm_snapshot_buffer *buffer;
 	int op;

@@ -31,8 +31,6 @@
 #ifndef	_VIRTIO_H_
 #define	_VIRTIO_H_
 
-#include <machine/vmm_snapshot.h>
-
 /*
  * These are derived from several virtio specifications.
  *
@@ -287,6 +285,7 @@ vring_size(u_int qsz)
 struct vmctx;
 struct pci_devinst;
 struct vqueue_info;
+struct vm_snapshot_meta;
 
 /*
  * A virtual device, with some number (possibly 0) of virtual

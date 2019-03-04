@@ -32,6 +32,7 @@
 #define	_VLAPIC_H_
 
 struct vm;
+struct vm_snapshot_meta;
 enum x2apic_state;
 
 int vlapic_write(struct vlapic *vlapic, int mmio_access, uint64_t offset,
@@ -110,9 +111,7 @@ void vlapic_lvt_write_handler(struct vlapic *vlapic, uint32_t offset);
 void vlapic_self_ipi_handler(struct vlapic *vlapic, uint64_t val);
 
 struct LAPIC *vlapic_get_LAPIC(struct vlapic *vlapic);
-int vlapic_snapshot(void *arg, void *buffer, size_t buf_size, size_t *snapshot_size);
-int vlapic_lapic_snapshot(void *arg, void *buffer, size_t buf_size, size_t *snapshot_size);
-int vlapic_restore(struct vlapic *vlapic, void *buffer, int vcpu);
-int vlapic_lapic_restore(struct vlapic *vlapic, void *buffer, int vcpu);
+int vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta);
+int vlapic_lapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta);
 
 #endif	/* _VLAPIC_H_ */
