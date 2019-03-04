@@ -43,6 +43,7 @@
 
 struct iovec;
 struct vmctx;
+struct vm_snapshot_meta;
 enum x2apic_state;
 
 /*
@@ -274,10 +275,7 @@ struct __attribute__((packed)) checkpoint_op {
 	char snapshot_filename[MAX_SNAPSHOT_VMNAME];
 };
 
-int	vm_snapshot_req(struct vmctx *ctx, enum snapshot_req req, char *buffer,
-			size_t max_size, size_t *snapshot_size);
-int	vm_restore_req(struct vmctx *ctx, enum snapshot_req req, char *buffer,
-		       size_t size);
+int	vm_snapshot_req(struct vm_snapshot_meta *meta);
 
 int	vm_restore_time(struct vmctx *ctx);
 

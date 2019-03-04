@@ -18,6 +18,7 @@ SRCS+=	vmm.c		\
 	vmm_dev.c	\
 	vmm_host.c	\
 	vmm_instruction_emul.c	\
+	vmm_snapshot.c	\
 	vmm_ioport.c	\
 	vmm_lapic.c	\
 	vmm_mem.c	\

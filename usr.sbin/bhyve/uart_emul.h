@@ -31,11 +31,10 @@
 #ifndef _UART_EMUL_H_
 #define	_UART_EMUL_H_
 
-#include <machine/vmm_snapshot.h>
-
 #define	UART_IO_BAR_SIZE	8
 
 struct uart_softc;
+struct vm_snapshot_meta;
 
 typedef void (*uart_intr_func_t)(void *arg);
 struct uart_softc *uart_init(uart_intr_func_t intr_assert,

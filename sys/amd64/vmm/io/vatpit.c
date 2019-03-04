@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmm_ktr.h"
 #include "vatpic.h"
@@ -474,68 +475,38 @@ vatpit_cleanup(struct vatpit *vatpit)
 }
 
 int
-vatpit_snapshot(struct vatpit *vatpit, void *buffer,
-			size_t buf_size, size_t *snapshot_size)
+vatpit_snapshot(struct vatpit *vatpit, struct vm_snapshot_meta *meta)
 {
-	printf("%s\n", __func__);
-	int error;
-
-	if (buf_size < sizeof(struct vatpit)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-			__func__, buf_size, sizeof(struct vatpit));
-		return (EINVAL);
-	}
-
-	error = copyout(vatpit, buffer, sizeof(struct vatpit));
-	if (error) {
-		printf("%s: failed to copy vatpit data to user buffer\n",
-			__func__);
-		return (error);
-	}
-
-	*snapshot_size = sizeof(struct vatpit);
-	return (0);
-}
-
-int
-vatpit_restore(struct vatpit *vatpit, void *buffer, size_t buf_size)
-{
-	printf("%s\n", __func__);
+	int ret;
 	int i;
-	struct vatpit *old_vatpit;
+	struct channel *channel;
 
-	if (buffer == NULL) {
-		printf("%s: buffer was NULL\n", __func__);
-		return (EINVAL);
+	SNAPSHOT_VAR_OR_LEAVE(vatpit->freq_bt.sec, meta, ret, done);
+	SNAPSHOT_VAR_OR_LEAVE(vatpit->freq_bt.frac, meta, ret, done);
+
+	/* properly restore timers; they will NOT work currently */
+	printf("%s: snapshot restore does not reset timers!\r\n", __func__);
+
+	for (i = 0; i < nitems(vatpit->channel); i++) {
+		channel = &vatpit->channel[i];
+
+		SNAPSHOT_VAR_OR_LEAVE(channel->mode, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->initial, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->now_bt.sec, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->now_bt.frac, meta, ret, done);
+		SNAPSHOT_BUF_OR_LEAVE(channel->cr, sizeof(channel->cr),
+			meta, ret, done);
+		SNAPSHOT_BUF_OR_LEAVE(channel->ol, sizeof(channel->ol),
+			meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->slatched, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->status, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->crbyte, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->frbyte, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->callout_bt.sec, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(channel->callout_bt.frac, meta, ret,
+			done);
 	}
 
-	if (buf_size <  sizeof(struct vatpit)) {
-		printf("%s: restore buffer size mismatch: %lu != %lu\n",
-			__func__, buf_size, sizeof(struct vatpit));
-		return (EINVAL);
-	}
-
-	old_vatpit = (struct vatpit *)buffer;
-
-	vatpit->mtx = old_vatpit->mtx;
-	vatpit->freq_bt = old_vatpit->freq_bt;
-
-	for (i = 0; i < 3; i++) {
-		vatpit->channel[i].mode = old_vatpit->channel[i].mode;
-		vatpit->channel[i].initial = old_vatpit->channel[i].initial;
-		vatpit->channel[i].now_bt = old_vatpit->channel[i].now_bt;
-		vatpit->channel[i].cr[0] = old_vatpit->channel[i].cr[0];
-		vatpit->channel[i].cr[1] = old_vatpit->channel[i].cr[1];
-		vatpit->channel[i].ol[0] = old_vatpit->channel[i].ol[0];
-		vatpit->channel[i].ol[1] = old_vatpit->channel[i].ol[1];
-		vatpit->channel[i].slatched = old_vatpit->channel[i].slatched;
-		vatpit->channel[i].status = old_vatpit->channel[i].status;
-		vatpit->channel[i].crbyte = old_vatpit->channel[i].crbyte;
-		vatpit->channel[i].frbyte = old_vatpit->channel[i].frbyte;
-		vatpit->channel[i].callout = old_vatpit->channel[i].callout;
-		vatpit->channel[i].callout_bt = old_vatpit->channel[i].callout_bt;
-		vatpit->channel[i].callout_arg = old_vatpit->channel[i].callout_arg;
-	}
-
-	return (0);
+done:
+	return (ret);
 }

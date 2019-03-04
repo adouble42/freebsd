@@ -54,6 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm.h>
 #include <machine/vmm.h>
 #include <machine/vmm_dev.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmmapi.h"
 
@@ -1629,22 +1630,26 @@ int vm_vcpu_unlock_all(struct vmctx *ctx)
 }
 
 int
-vm_snapshot_req(struct vmctx *ctx, enum snapshot_req req, char *buffer, size_t max_size,
-			size_t *snapshot_size)
+vm_snapshot_req(struct vm_snapshot_meta *meta)
 {
 	struct vm_snapshot_req req_params;
 	int error;
 
 	bzero(&req_params, sizeof(struct vm_snapshot_req));
-	req_params.req = req;
-	req_params.buffer = buffer;
-	req_params.max_size = max_size;
+	/* copy metadata header for syscall */
+	memcpy(&req_params.meta, meta, sizeof(req_params.meta));
 
-	error = ioctl(ctx->fd, VM_SNAPSHOT_REQ, &req_params);
+	error = ioctl(meta->ctx->fd, VM_SNAPSHOT_REQ, &req_params);
+	if (error != 0) {
+		fprintf(stderr, "%s: snapshot failed for %s\r\n",
+			__func__, meta->dev_name);
+		goto done;
+	}
 
-	if (error == 0)
-		*snapshot_size = req_params.snapshot_size;
+	/* copy results back to metadata header */
+	memcpy(meta, &req_params.meta, sizeof(req_params.meta));
 
+done:
 	return (error);
 }
 
@@ -1664,7 +1669,6 @@ vm_mem_read_from_file(int fd, void *dest, size_t file_offset, size_t len)
 
 	while (read_total < len) {
 		cnt_read = read(fd, dest + read_total, to_read);
-		printf("%s: cnt_read  = %zd\r\n", __func__, cnt_read);
 		// TODO - fix for when read returns 0
 		if (cnt_read <= 0) {
 			fprintf(stderr,"%s: read error: %d\r\n",
@@ -1681,9 +1685,6 @@ vm_mem_read_from_file(int fd, void *dest, size_t file_offset, size_t len)
 int
 vm_restore_mem(struct vmctx *ctx, int vmmem_fd, size_t size)
 {
-
-	printf("%s: Lowmem = %zd\n", __func__, ctx->lowmem);
-	printf("%s: Highmem = %zd\n", __func__, ctx->highmem);
 	if (ctx->lowmem + ctx->highmem != size) {
 		fprintf(stderr, "%s: mem size mismatch: %ld vs %ld\n",
 			__func__, ctx->lowmem + ctx->highmem, size);
@@ -1709,22 +1710,6 @@ vm_restore_mem(struct vmctx *ctx, int vmmem_fd, size_t size)
 	}
 
 	return (0);
-}
-
-int
-vm_restore_req(struct vmctx *ctx, enum snapshot_req req, char *buffer, size_t size)
-{
-	int error;
-	struct vm_restore_req restore_params;
-
-	bzero(&restore_params, sizeof(struct vm_restore_req));
-	restore_params.req = req;
-	restore_params.buffer = buffer;
-	restore_params.size = size;
-
-	error = ioctl(ctx->fd, VM_RESTORE_REQ, &restore_params);
-
-	return (error);
 }
 
 int

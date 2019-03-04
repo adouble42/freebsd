@@ -31,25 +31,12 @@
 #ifndef	_VMM_DEV_H_
 #define	_VMM_DEV_H_
 
-#include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 #include <sys/_cpuset.h>
 #include <sys/param.h>
 #include <vm/vm.h>
 
-enum snapshot_req {
-	STRUCT_VMX,
-	STRUCT_VIOAPIC,
-	STRUCT_VM,
-	STRUCT_VLAPIC,
-	STRUCT_LAPIC,
-	VM_MEM,
-	STRUCT_VHPET,
-	STRUCT_VMCX,
-	STRUCT_VATPIC,
-	STRUCT_VATPIT,
-	STRUCT_VPMTMR,
-	STRUCT_VRTC,
-};
+struct vm_snapshot_meta;
 
 #ifdef _KERNEL
 void	vmmdev_init(void);
@@ -270,16 +257,7 @@ struct vm_vmem_stat {
 };
 
 struct vm_snapshot_req {
-	enum snapshot_req req;	/* in: type for requested data */
-	void *buffer;		/* user-space buffer */
-	size_t max_size;	/* in: buffer size */
-	size_t snapshot_size;	/* out: data size */
-};
-
-struct vm_restore_req {
-	enum snapshot_req req;	/* in: type for requested data */
-	void *buffer;		/* in: used for passing data to vmm */
-	size_t size;		/* in: size of data to transfer to vmm*/
+	struct vm_snapshot_meta meta;
 };
 
 enum {
@@ -367,7 +345,6 @@ enum {
 
 	/* checkpoint */
 	IOCNUM_SNAPSHOT_REQ = 113,
-	IOCNUM_RESTORE_REQ = 114,
 
 	IOCNUM_RESTORE_TIME = 115
 };
@@ -488,8 +465,6 @@ enum {
 	_IOW('v', IOCNUM_RESTART_INSTRUCTION, int)
 #define VM_SNAPSHOT_REQ \
 	_IOWR('v', IOCNUM_SNAPSHOT_REQ, struct vm_snapshot_req)
-#define VM_RESTORE_REQ \
-	_IOWR('v', IOCNUM_RESTORE_REQ, struct vm_restore_req)
 #define VM_RESTORE_TIME \
 	_IOWR('v', IOCNUM_RESTORE_TIME, int)
 #endif

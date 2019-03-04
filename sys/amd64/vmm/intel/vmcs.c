@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/segments.h>
 #include <machine/vmm.h>
+#include <machine/vmm_snapshot.h>
 #include "vmm_host.h"
 #include "vmx_cpufunc.h"
 #include "vmcs.h"
@@ -458,6 +459,94 @@ vmcs_setany(struct vmcs *vmcs, int running, int ident, uint64_t val)
 		VMCLEAR(vmcs);
 
 	return (error);
+}
+
+int
+vmcs_snapshot_reg(struct vmcs *vmcs, int running, int ident,
+		  struct vm_snapshot_meta *meta)
+{
+	int ret;
+	uint64_t val;
+
+	if (meta->op == VM_SNAPSHOT_SAVE) {
+		ret = vmcs_getreg(vmcs, running, ident, &val);
+		if (ret != 0)
+			goto done;
+
+		SNAPSHOT_VAR_OR_LEAVE(val, meta, ret, done);
+	} else if (meta->op == VM_SNAPSHOT_RESTORE) {
+		SNAPSHOT_VAR_OR_LEAVE(val, meta, ret, done);
+
+		ret = vmcs_setreg(vmcs, running, ident, val);
+		if (ret != 0)
+			goto done;
+	} else {
+		ret = EINVAL;
+		goto done;
+	}
+
+done:
+	return (ret);
+}
+
+int
+vmcs_snapshot_desc(struct vmcs *vmcs, int running, int seg,
+		   struct vm_snapshot_meta *meta)
+{
+	int ret;
+	struct seg_desc desc;
+
+	if (meta->op == VM_SNAPSHOT_SAVE) {
+		ret = vmcs_getdesc(vmcs, running, seg, &desc);
+		if (ret != 0)
+			goto done;
+
+		SNAPSHOT_VAR_OR_LEAVE(desc.base, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(desc.limit, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(desc.access, meta, ret, done);
+	} else if (meta->op == VM_SNAPSHOT_RESTORE) {
+		SNAPSHOT_VAR_OR_LEAVE(desc.base, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(desc.limit, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(desc.access, meta, ret, done);
+
+		ret = vmcs_setdesc(vmcs, running, seg, &desc);
+		if (ret != 0)
+			goto done;
+	} else {
+		ret = EINVAL;
+		goto done;
+	}
+
+done:
+	return (ret);
+}
+
+int
+vmcs_snapshot_any(struct vmcs *vmcs, int running, int ident,
+		  struct vm_snapshot_meta *meta)
+{
+	int ret;
+	uint64_t val;
+
+	if (meta->op == VM_SNAPSHOT_SAVE) {
+		ret = vmcs_getany(vmcs, running, ident, &val);
+		if (ret != 0)
+			goto done;
+
+		SNAPSHOT_VAR_OR_LEAVE(val, meta, ret, done);
+	} else if (meta->op == VM_SNAPSHOT_RESTORE) {
+		SNAPSHOT_VAR_OR_LEAVE(val, meta, ret, done);
+
+		ret = vmcs_setany(vmcs, running, ident, val);
+		if (ret != 0)
+			goto done;
+	} else {
+		ret = EINVAL;
+		goto done;
+	}
+
+done:
+	return (ret);
 }
 
 #ifdef DDB

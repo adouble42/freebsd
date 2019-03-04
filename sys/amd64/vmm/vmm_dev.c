@@ -55,8 +55,9 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/vmparam.h>
 #include <machine/vmm.h>
-#include <machine/vmm_instruction_emul.h>
 #include <machine/vmm_dev.h>
+#include <machine/vmm_instruction_emul.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmm_lapic.h"
 #include "vmm_stat.h"
@@ -400,7 +401,6 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	int *regnums;
 	struct vm_vmem_stat *vmem_stat;
 	struct vm_snapshot_req *snapshot_req;
-	struct vm_restore_req *restore_req;
 
 	error = vmm_priv_check(curthread->td_ucred);
 	if (error)
@@ -817,14 +817,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		error = 0;
 	case VM_SNAPSHOT_REQ:
 		snapshot_req = (struct vm_snapshot_req *)data;
-		error = vm_snapshot_req(sc->vm, snapshot_req->req,
-				snapshot_req->buffer, snapshot_req->max_size,
-				&(snapshot_req->snapshot_size));
-		break;
-	case VM_RESTORE_REQ:
-		restore_req = (struct vm_restore_req *)data;
-		error = vm_restore_req(sc->vm, restore_req->req,
-				restore_req->buffer, restore_req->size);
+		error = vm_snapshot_req(sc->vm, &snapshot_req->meta);
 		break;
 	case VM_RESTORE_TIME:
 		error = vm_restore_time(sc->vm);

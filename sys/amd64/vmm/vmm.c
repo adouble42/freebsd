@@ -44,7 +44,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/rwlock.h>
 #include <sys/sched.h>
 #include <sys/smp.h>
-#include <sys/systm.h>
 #include <sys/vnode.h>
 
 #include <vm/vm.h>
@@ -70,6 +69,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmm.h>
 #include <machine/vmm_dev.h>
 #include <machine/vmm_instruction_emul.h>
+#include <machine/vmm_snapshot.h>
 
 #include "vmm_ioport.h"
 #include "vmm_ktr.h"
@@ -208,17 +208,12 @@ static struct vmm_ops *ops;
 	(ops != NULL ? (*ops->vlapic_init)(vmi, vcpu) : NULL)
 #define	VLAPIC_CLEANUP(vmi, vlapic)		\
 	(ops != NULL ? (*ops->vlapic_cleanup)(vmi, vlapic) : NULL)
-#define	VM_SNAPSHOT_VMI(vmi, buffer, buf_size, snapshot_size) \
-	(ops != NULL ? (*ops->vmsnapshot)(vmi, buffer, buf_size, \
-			snapshot_size) : ENXIO)
-#define	VM_SNAPSHOT_VMCX(vmi, vmcx_state, vcpuid) \
-	(ops != NULL ? (*ops->vmcx_snapshot)(vmi, vmcx_state, vcpuid) : ENXIO)
-#define	VM_RESTORE_VMCX(vmi, vmcx_state, vcpuid) \
-	(ops != NULL ? (*ops->vmcx_restore)(vmi, vmcx_state, vcpuid) : ENXIO)
-#define	VM_RESTORE_VMI(vmi, buffer, buf_size) \
-	(ops != NULL ? (*ops->vmrestore)(vmi, buffer, buf_size) : ENXIO)
-#define	VM_RESTORE_TSC(vmi, vcpuid, now) \
-	(ops != NULL ? (*ops->vm_restore_tsc)(vmi, vcpuid, now) : ENXIO)
+#define	VM_SNAPSHOT_VMI(vmi, meta) \
+	(ops != NULL ? (*ops->vmsnapshot)(vmi, meta) : ENXIO)
+#define	VM_SNAPSHOT_VMCX(vmi, meta, vcpuid) \
+	(ops != NULL ? (*ops->vmcx_snapshot)(vmi, meta, vcpuid) : ENXIO)
+#define	VM_RESTORE_TSC(vmi, vcpuid, offset) \
+	(ops != NULL ? (*ops->vm_restore_tsc)(vmi, vcpuid, offset) : ENXIO)
 
 #define	fpu_start_emulating()	load_cr0(rcr0() | CR0_TS)
 #define	fpu_stop_emulating()	clts()
@@ -2805,366 +2800,186 @@ VMM_STAT_FUNC(VMM_MEM_RESIDENT, "Resident memory", vm_get_rescnt);
 VMM_STAT_FUNC(VMM_MEM_WIRED, "Wired memory", vm_get_wiredcnt);
 
 static int
-vm_snapshot(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
+vm_snapshot_vcpus(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	int error;
+	int ret;
 	int i;
 	struct vcpu *vcpu;
-	uint64_t now;
 
-	if (buf_size < sizeof(struct vm)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-				__func__, buf_size, sizeof(struct vm));
-		return (EINVAL);
-	}
-
-	now = rdtsc();
-
-	/* XXX make tsc_offset take the value TSC proper as seen by the guest */
 	for (i = 0; i < VM_MAXCPU; i++) {
 		vcpu = &vm->vcpu[i];
-		vcpu->tsc_offset += now;
-	}
 
-	error = copyout(vm, buffer, sizeof(struct vm));
-	if (error) {
-		printf("%s: failed to copy vm data to user buffer", __func__);
-		*snapshot_size = 0;
-		return (error);
-	}
-
-	/* XXX turn tsc_offset back into an offset; actual value is only
-	 * required for restore; using it otherwise would be wrong
-	 */
-	for (i = 0; i < VM_MAXCPU; i++) {
-		vcpu = &vm->vcpu[i];
-		vcpu->tsc_offset -= now;
-	}
-
-	*snapshot_size = sizeof(struct vm);
-	return (0);
-}
-
-static int
-vm_snapshot_vlapic(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vlapic_snapshot(vm, buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_lapic(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vlapic_lapic_snapshot(vm, buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vioapic(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vioapic_snapshot(vm_ioapic(vm), buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vhpet(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vhpet_snapshot(vm_hpet(vm), buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vatpic(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vatpic_snapshot(vm_atpic(vm), buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vatpit(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vatpit_snapshot(vm_atpit(vm), buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vpmtmr(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vpmtmr_snapshot(vm_pmtmr(vm), buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vrtc(struct vm *vm, void *buffer, size_t buf_size, size_t *snapshot_size)
-{
-	return vrtc_snapshot(vm_rtc(vm), buffer, buf_size, snapshot_size);
-}
-
-static int
-vm_snapshot_vmcx(struct vm *vm, void *buffer, size_t buf_size,
-		 size_t *snapshot_size)
-{
-	int i, error;
-	struct vmcx_state vmcx;
-
-	if (buf_size < VM_MAXCPU * sizeof(vmcx)) {
-		printf("%s: buffer size too small: %lu < %lu\n",
-				__func__, buf_size, sizeof(vmcx));
-		return (EINVAL);
-	}
-
-	for (i = 0; i < VM_MAXCPU; i++) {
-		bzero(&vmcx, sizeof(vmcx));
-		error = VM_SNAPSHOT_VMCX(vm->cookie, &vmcx, i);
-		if (error) {
-			printf("%s: failed to snapshot vmcs/vmcb data for "
-			       "vCPU: %d; error: %d\n", __func__, i, error);
-			return (error);
-		}
-		error = copyout(&vmcx, (char *)buffer + i * sizeof(vmcx),
-				sizeof(vmcx));
-		if (error) {
-			printf("%s: failed to copy vmcs/vmcb data to user "
-			       "buffer\n", __func__);
-			*snapshot_size = 0;
-			return (error);
-		}
-	}
-	*snapshot_size = VM_MAXCPU * sizeof(vmcx);
-	return (0);
-}
-
-/*
- * Save kernel-side structures to user-space for snapshotting.
- */
-int
-vm_snapshot_req(struct vm *vm, enum snapshot_req req, void *buffer,
-		size_t buf_size, size_t *snapshot_size)
-{
-	int ret = 0;
-
-	switch (req) {
-	case STRUCT_VMX:
-		ret = VM_SNAPSHOT_VMI(vm->cookie, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VMCX:
-		ret = vm_snapshot_vmcx(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VM:
-		ret = vm_snapshot(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VIOAPIC:
-		ret = vm_snapshot_vioapic(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VLAPIC:
-		ret = vm_snapshot_vlapic(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_LAPIC:
-		ret = vm_snapshot_lapic(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VHPET:
-		ret = vm_snapshot_vhpet(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VATPIC:
-		ret = vm_snapshot_vatpic(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VATPIT:
-		ret = vm_snapshot_vatpit(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VPMTMR:
-		ret = vm_snapshot_vpmtmr(vm, buffer, buf_size, snapshot_size);
-		break;
-	case STRUCT_VRTC:
-		ret = vm_snapshot_vrtc(vm, buffer, buf_size, snapshot_size);
-		break;
-	default:
-		printf("%s: failed to find the requested type\n", __func__);
-		ret = (EINVAL);
-	}
-	return (ret);
-}
-
-static int
-vm_restore_vcpu(struct vm *vm, struct vcpu *saved_vcpu)
-{
-	int i;
-	struct vcpu *current_vcpu = vm->vcpu;
-	for (i = 0; i < VM_MAXCPU; i++) {
-		current_vcpu[i].x2apic_state = saved_vcpu[i].x2apic_state;
-		current_vcpu[i].exitintinfo = saved_vcpu[i].exitintinfo;
-//		current_vcpu[i].nmi_pending = saved_vcpu[i].nmi_pending;
-//		current_vcpu[i].extint_pending = saved_vcpu[i].extint_pending;
-//		current_vcpu[i].exception_pending = saved_vcpu[i].exception_pending;
-		current_vcpu[i].exc_vector = saved_vcpu[i].exc_vector;
-		current_vcpu[i].exc_errcode_valid = saved_vcpu[i].exc_errcode_valid;
-		current_vcpu[i].exc_errcode = saved_vcpu[i].exc_errcode;
-		current_vcpu[i].guest_xcr0 = saved_vcpu[i].guest_xcr0;
-		current_vcpu[i].exitinfo = saved_vcpu[i].exitinfo;
-		current_vcpu[i].nextrip = saved_vcpu[i].nextrip;
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->x2apic_state, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->exitintinfo, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->exc_vector, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->exc_errcode_valid, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->exc_errcode, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->guest_xcr0, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->exitinfo, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->nextrip, meta, ret, done);
 		/* XXX we're cheating here, since the value of tsc_offset as
 		 * saved here is actually the value of the guest's TSC value.
 		 *
 		 * It will be turned turned back into an actual offset when the
 		 * TSC restore function is called
 		 */
-		current_vcpu[i].tsc_offset = saved_vcpu[i].tsc_offset;
+		SNAPSHOT_VAR_OR_LEAVE(vcpu->tsc_offset, meta, ret, done);
 	}
 
-	return (0);
+done:
+	return (ret);
 }
 
 static int
-vm_restore_vm(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vm(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	struct vm *from_vm = (struct vm *)buffer;
+	int ret;
+	int i;
+	uint64_t now;
 
-	if (buf_size != sizeof(struct vm)) {
-		printf("%s: restore buffer size mismatch: %lu < %lu\n",
-				__func__, buf_size, sizeof(struct vm));
-		return (EINVAL);
+	ret = 0;
+	now = rdtsc();
+
+	if (meta->op == VM_SNAPSHOT_SAVE) {
+		/* XXX make tsc_offset take the value TSC proper as seen by the
+		 * guest
+		 */
+		for (i = 0; i < VM_MAXCPU; i++)
+			vm->vcpu[i].tsc_offset += now;
 	}
 
-	return vm_restore_vcpu(vm, from_vm->vcpu);
-}
-
-static int
-vm_restore_vlapic(struct vm *vm, void *buffer, size_t size)
-{
-	int i, error = 0;
-
-	for (i = 0; i < VM_MAXCPU; i++) {
-		error = vlapic_restore(vm_lapic(vm, i), buffer, i);
-		if (error)
-			break;
+	ret = vm_snapshot_vcpus(vm, meta);
+	if (ret != 0) {
+		printf("%s: failed to copy vm data to user buffer", __func__);
+		goto done;
 	}
 
-	return (error);
-}
-
-static int
-vm_restore_lapic(struct vm *vm, void *buffer, size_t size)
-{
-	int i, error = 0;
-
-	for (i = 0; i < VM_MAXCPU; i++) {
-		error = vlapic_lapic_restore(vm_lapic(vm, i), buffer, i);
-		if (error)
-			break;
+	if (meta->op == VM_SNAPSHOT_SAVE) {
+		/* XXX turn tsc_offset back into an offset; actual value is only
+		 * required for restore; using it otherwise would be wrong
+		 */
+		for (i = 0; i < VM_MAXCPU; i++)
+			vm->vcpu[i].tsc_offset -= now;
 	}
 
-	return (error);
+done:
+	return (ret);
 }
 
 static int
-vm_restore_vioapic(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vlapic(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	return vioapic_restore(vm_ioapic(vm), buffer, buf_size);
+	return vlapic_snapshot(vm, meta);
 }
 
 static int
-vm_restore_vhpet(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_lapic(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	return vhpet_restore(vm_hpet(vm), buffer, buf_size);
+	return vlapic_lapic_snapshot(vm, meta);
 }
 
 static int
-vm_restore_vatpic(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vioapic(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	return vatpic_restore(vm_atpic(vm), buffer, buf_size);
+	return vioapic_snapshot(vm_ioapic(vm), meta);
 }
 
 static int
-vm_restore_vatpit(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vhpet(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	return vatpit_restore(vm_atpit(vm), buffer, buf_size);
+	return vhpet_snapshot(vm_hpet(vm), meta);
 }
 
 static int
-vm_restore_vpmtmr(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vatpic(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	return vpmtmr_restore(vm_pmtmr(vm), buffer, buf_size);
+	return vatpic_snapshot(vm_atpic(vm), meta);
 }
 
 static int
-vm_restore_vrtc(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vatpit(struct vm *vm, struct vm_snapshot_meta *meta)
 {
-	return vrtc_restore(vm_rtc(vm), buffer, buf_size);
+	return vatpit_snapshot(vm_atpit(vm), meta);
 }
 
 static int
-vm_restore_vmcx(struct vm *vm, void *buffer, size_t buf_size)
+vm_snapshot_vpmtmr(struct vm *vm, struct vm_snapshot_meta *meta)
+{
+	return vpmtmr_snapshot(vm_pmtmr(vm), meta);
+}
+
+static int
+vm_snapshot_vrtc(struct vm *vm, struct vm_snapshot_meta *meta)
+{
+	return vrtc_snapshot(vm_rtc(vm), meta);
+}
+
+static int
+vm_snapshot_vmcx(struct vm *vm, struct vm_snapshot_meta *meta)
 {
 	int i, error;
-	struct vmcx_state *vmcx;
 
-	if (buf_size != VM_MAXCPU * sizeof(*vmcx)) {
-		printf("%s: restore buffer size mismatch: %lu != %lu\n",
-				__func__, buf_size, VM_MAXCPU * sizeof(*vmcx));
-		return (EINVAL);
-	}
+	error = 0;
 
 	for (i = 0; i < VM_MAXCPU; i++) {
-		vmcx = (struct vmcx_state *)buffer + i;
-		error = VM_RESTORE_VMCX(vm->cookie, vmcx, i);
-		if (error) {
-			printf("%s: failed to restore vmcs/vmcb data for "
+		error = VM_SNAPSHOT_VMCX(vm->cookie, meta, i);
+		if (error != 0) {
+			printf("%s: failed to snapshot vmcs/vmcb data for "
 			       "vCPU: %d; error: %d\n", __func__, i, error);
-			return (error);
+			goto done;
 		}
 	}
 
-	return (0);
+done:
+	return (error);
 }
 
+/*
+ * Save kernel-side structures to user-space for snapshotting.
+ */
 int
-vm_restore_req(struct vm *vm, enum snapshot_req req, void *buffer, size_t buf_size)
+vm_snapshot_req(struct vm *vm, struct vm_snapshot_meta *meta)
 {
 	int ret = 0;
-	void *kbuf;
 
-	kbuf = malloc(buf_size, M_RESTORE, M_WAITOK | M_ZERO);
-	if (kbuf == NULL)
-		return (ENOMEM);
-
-	ret = copyin(buffer, kbuf, buf_size);
-	if (ret != 0) {
-		goto err_copyin;
-	}
-
-	switch (req) {
+	switch (meta->dev_req) {
 	case STRUCT_VMX:
-		ret = VM_RESTORE_VMI(vm->cookie, kbuf, buf_size);
+		ret = VM_SNAPSHOT_VMI(vm->cookie, meta);
 		break;
 	case STRUCT_VMCX:
-		ret = vm_restore_vmcx(vm, kbuf, buf_size);
+		ret = vm_snapshot_vmcx(vm, meta);
 		break;
 	case STRUCT_VM:
-		ret = vm_restore_vm(vm, kbuf, buf_size);
-		break;
-	case STRUCT_VLAPIC:
-		ret = vm_restore_vlapic(vm, kbuf, buf_size);
-		break;
-	case STRUCT_LAPIC:
-		ret = vm_restore_lapic(vm, kbuf, buf_size);
+		ret = vm_snapshot_vm(vm, meta);
 		break;
 	case STRUCT_VIOAPIC:
-		ret = vm_restore_vioapic(vm, kbuf, buf_size);
+		ret = vm_snapshot_vioapic(vm, meta);
+		break;
+	case STRUCT_VLAPIC:
+		ret = vm_snapshot_vlapic(vm, meta);
+		break;
+	case STRUCT_LAPIC:
+		ret = vm_snapshot_lapic(vm, meta);
 		break;
 	case STRUCT_VHPET:
-		ret = vm_restore_vhpet(vm, kbuf, buf_size);
+		ret = vm_snapshot_vhpet(vm, meta);
 		break;
 	case STRUCT_VATPIC:
-		ret = vm_restore_vatpic(vm, kbuf, buf_size);
+		ret = vm_snapshot_vatpic(vm, meta);
 		break;
 	case STRUCT_VATPIT:
-		ret = vm_restore_vatpit(vm, kbuf, buf_size);
+		ret = vm_snapshot_vatpit(vm, meta);
 		break;
 	case STRUCT_VPMTMR:
-		ret = vm_restore_vpmtmr(vm, kbuf, buf_size);
+		ret = vm_snapshot_vpmtmr(vm, meta);
 		break;
 	case STRUCT_VRTC:
-		ret = vm_restore_vrtc(vm, kbuf, buf_size);
+		ret = vm_snapshot_vrtc(vm, meta);
 		break;
 	default:
-		printf("%s: failed to find type to restore\n", __func__);
+		printf("%s: failed to find the requested type\n", __func__);
 		ret = (EINVAL);
 	}
-
-err_copyin:
-	free(kbuf, M_RESTORE);
 	return (ret);
 }
 

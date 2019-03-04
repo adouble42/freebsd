@@ -4,6 +4,23 @@
 #include <sys/errno.h>
 #include <sys/types.h>
 
+struct vmctx;
+
+enum snapshot_req {
+	STRUCT_VMX,
+	STRUCT_VIOAPIC,
+	STRUCT_VM,
+	STRUCT_VLAPIC,
+	STRUCT_LAPIC,
+	VM_MEM,
+	STRUCT_VHPET,
+	STRUCT_VMCX,
+	STRUCT_VATPIC,
+	STRUCT_VATPIT,
+	STRUCT_VPMTMR,
+	STRUCT_VRTC,
+};
+
 struct vm_snapshot_buffer {
 	/* R/O for device-specific functions;
 	 * written by generic snapshot functions
@@ -32,7 +49,8 @@ enum vm_snapshot_op {
 struct vm_snapshot_meta {
 	struct vmctx *ctx;
 	void *dev_data;
-	const char *dev_name;
+	const char *dev_name;      /* identify userspace devices */
+	enum snapshot_req dev_req; /* identify kernel structs */
 
 	struct vm_snapshot_buffer buffer;
 

@@ -1,13 +1,11 @@
 #ifndef _BHYVE_SNAPSHOT_
 #define _BHYVE_SNAPSHOT_
 
-#include <libxo/xo.h>
-#include <machine/vmm_dev.h>
 #include <machine/vmm_snapshot.h>
+#include <libxo/xo.h>
 #include <ucl.h>
 
 struct vmctx;
-struct vm_snapshot_meta;
 
 struct __attribute__((packed)) restore_state {
 	int kdata_fd;

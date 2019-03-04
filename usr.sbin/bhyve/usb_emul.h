@@ -35,18 +35,16 @@
 #include <sys/linker_set.h>
 #include <pthread.h>
 
-#include <machine/vmm_snapshot.h>
-
 #define	USB_MAX_XFER_BLOCKS	8
 
 #define	USB_XFER_OUT		0
 #define	USB_XFER_IN		1
 
 
-
 struct usb_hci;
 struct usb_device_request;
 struct usb_data_xfer;
+struct vm_snapshot_meta;
 
 /* Device emulation handlers */
 struct usb_devemu {

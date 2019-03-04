@@ -41,7 +41,7 @@
 #include <sys/uio.h>
 #include <sys/unistd.h>
 
-#include <machine/vmm_snapshot.h>
+struct vm_snapshot_meta;
 
 
 /*

@@ -34,6 +34,8 @@
 #include <sys/sdt.h>
 #include <x86/segments.h>
 
+struct vm_snapshot_meta;
+
 #ifdef _KERNEL
 SDT_PROVIDER_DECLARE(vmm);
 #endif
@@ -189,11 +191,9 @@ typedef struct vmspace * (*vmi_vmspace_alloc)(vm_offset_t min, vm_offset_t max);
 typedef void	(*vmi_vmspace_free)(struct vmspace *vmspace);
 typedef struct vlapic * (*vmi_vlapic_init)(void *vmi, int vcpu);
 typedef void	(*vmi_vlapic_cleanup)(void *vmi, struct vlapic *vlapic);
-typedef int	(*vmi_snapshot_t)(void *vmi, void *buffer, size_t buf_size,
-				  size_t *snapshot_size);
-typedef int	(*vmi_restore_t)(void *vmi, void *buffer, size_t buf_size);
-typedef int	(*vmi_snapshot_vmcx_t)(void *vmi, struct vmcx_state *vmcx, int vcpu);
-typedef int	(*vmi_restore_vmcx_t)(void *vmi, struct vmcx_state *vmcx, int vcpu);
+typedef int	(*vmi_snapshot_t)(void *vmi, struct vm_snapshot_meta *meta);
+typedef int	(*vmi_snapshot_vmcx_t)(void *vmi, struct vm_snapshot_meta *meta,
+				       int vcpu);
 typedef int	(*vmi_restore_tsc_t)(void *vmi, int vcpuid, uint64_t now);
 
 struct vmm_ops {
@@ -217,9 +217,7 @@ struct vmm_ops {
 
 	/* checkpoint operations */
 	vmi_snapshot_t		vmsnapshot;
-	vmi_restore_t		vmrestore;
 	vmi_snapshot_vmcx_t	vmcx_snapshot;
-	vmi_restore_vmcx_t	vmcx_restore;
 	vmi_restore_tsc_t	vm_restore_tsc;
 };
 
@@ -296,10 +294,7 @@ void vm_exit_debug(struct vm *vm, int vcpuid, uint64_t rip);
 void vm_exit_rendezvous(struct vm *vm, int vcpuid, uint64_t rip);
 void vm_exit_astpending(struct vm *vm, int vcpuid, uint64_t rip);
 void vm_exit_reqidle(struct vm *vm, int vcpuid, uint64_t rip);
-int vm_snapshot_req(struct vm *vm, enum snapshot_req req, void *buffer,
-		    size_t buf_size, size_t *snapshot_size);
-int vm_restore_req(struct vm *vm, enum snapshot_req req, void *buffer,
-		   size_t buf_size);
+int vm_snapshot_req(struct vm *vm, struct vm_snapshot_meta *meta);
 int vm_restore_time(struct vm *vm);
 
 

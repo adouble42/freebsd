@@ -35,6 +35,8 @@
 #define	VHPET_BASE	0xfed00000
 #define	VHPET_SIZE	1024
 
+struct vm_snapshot_meta;
+
 struct vhpet *vhpet_init(struct vm *vm);
 void 	vhpet_cleanup(struct vhpet *vhpet);
 int	vhpet_mmio_write(void *vm, int vcpuid, uint64_t gpa, uint64_t val,
@@ -42,9 +44,7 @@ int	vhpet_mmio_write(void *vm, int vcpuid, uint64_t gpa, uint64_t val,
 int	vhpet_mmio_read(void *vm, int vcpuid, uint64_t gpa, uint64_t *val,
 	    int size, void *arg);
 int	vhpet_getcap(struct vm_hpet_cap *cap);
-int	vhpet_snapshot(struct vhpet *vhpet, void *buffer,
-	    size_t buf_size, size_t *snapshot_size);
-int	vhpet_restore(struct vhpet *vhpet, void *buffer, size_t buf_size);
+int	vhpet_snapshot(struct vhpet *vhpet, struct vm_snapshot_meta *meta);
 int	vhpet_restore_time(struct vhpet *vhpet);
 
 #endif	/* _VHPET_H_ */
