@@ -276,6 +276,23 @@ svm_restore(void)
 	svm_enable(NULL);
 }		
 
+int
+svm_set_tsc_offset(struct svm_softc *sc, int vcpu, uint64_t offset)
+{
+	int error;
+	struct vmcb_ctrl *ctrl;
+
+	ctrl = svm_get_vmcb_ctrl(sc, vcpu);
+	ctrl->tsc_offset = offset;
+
+	svm_set_dirty(sc, vcpu, VMCB_CACHE_I);
+	VCPU_CTR1(sc->vm, vcpu, "tsc offset changed to %#lx", offset);
+
+	error = vm_set_tsc_offset(sc->vm, vcpu, offset);
+
+	return (error);
+}
+
 /* Pentium compatible MSRs */
 #define MSR_PENTIUM_START 	0	
 #define MSR_PENTIUM_END 	0x1FFF
@@ -2596,6 +2613,16 @@ svm_snapshot_vmcx(void *arg, struct vm_snapshot_meta *meta, int vcpu)
 	return (err);
 }
 
+static int
+svm_restore_tsc(void *arg, int vcpu, uint64_t offset)
+{
+	int err;
+
+	err = svm_set_tsc_offset(arg, vcpu, offset);
+
+	return (err);
+}
+
 struct vmm_ops vmm_ops_amd = {
 	.init		= svm_init,
 	.cleanup	= svm_cleanup,
@@ -2615,5 +2642,5 @@ struct vmm_ops vmm_ops_amd = {
 	.vlapic_cleanup	= svm_vlapic_cleanup,
 	.vmsnapshot	= svm_snapshot_vmi,
 	.vmcx_snapshot	= svm_snapshot_vmcx,
-	.vm_restore_tsc	= NULL /* restore_tsc not yet implemented for AMD */
+	.vm_restore_tsc	= svm_restore_tsc,
 };
