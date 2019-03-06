@@ -32,6 +32,7 @@
 #define _SVM_H_
 
 struct pcpu;
+struct svm_softc;
 
 /*
  * Guest register state that is saved outside the VMCB.
@@ -66,5 +67,6 @@ struct svm_regctx {
 };
 
 void svm_launch(uint64_t pa, struct svm_regctx *gctx, struct pcpu *pcpu);
+int  svm_set_tsc_offset(struct svm_softc *sc, int vcpu, uint64_t offset);
 
 #endif /* _SVM_H_ */

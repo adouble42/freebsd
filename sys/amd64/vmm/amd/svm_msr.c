@@ -162,6 +162,8 @@ svm_wrmsr(struct svm_softc *sc, int vcpu, u_int num, uint64_t val, bool *retu)
 		 * Ignore writes to microcode update register.
 		 */
 		break;
+	case MSR_TSC:
+		error = svm_set_tsc_offset(sc, vcpu, val - rdtsc());
 	case MSR_EXTFEATURES:
 		break;
 	default:
