@@ -793,7 +793,6 @@ vm_snapshot_kern_structs(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
 		meta->buffer.buf = meta->buffer.buf_start;
 		meta->buffer.buf_rem = meta->buffer.buf_size;
 
-		fprintf(stderr, "%s: snapshot: %s\r\n", __func__, snapshot_kern_structs[i].struct_name);
 		ret = vm_snapshot_kern_struct(data_fd, xop, JSON_DEV_ARR_KEY,
 					      meta, &offset);
 		if (ret != 0) {
