@@ -789,7 +789,7 @@ vm_snapshot_kern_structs(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
 		meta->dev_name = snapshot_kern_structs[i].struct_name;
 		meta->dev_req  = snapshot_kern_structs[i].req;
 
-		memset(meta->buffer.buf_start, meta->buffer.buf_size, 0);
+		memset(meta->buffer.buf_start, 0, meta->buffer.buf_size);
 		meta->buffer.buf = meta->buffer.buf_start;
 		meta->buffer.buf_rem = meta->buffer.buf_size;
 
@@ -919,7 +919,7 @@ vm_snapshot_user_devs(struct vmctx *ctx, int data_fd, xo_handle_t *xop)
 	for (i = 0; i < nitems(snapshot_devs); i++) {
 		meta->dev_name = snapshot_devs[i].dev_name;
 
-		memset(meta->buffer.buf_start, meta->buffer.buf_size, 0);
+		memset(meta->buffer.buf_start, 0, meta->buffer.buf_size);
 		meta->buffer.buf = meta->buffer.buf_start;
 		meta->buffer.buf_rem = meta->buffer.buf_size;
 
