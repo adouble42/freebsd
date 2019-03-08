@@ -115,13 +115,11 @@ vm_device_open(const char *name)
 static int
 vm_checkpoint_device_open(const char *name)
 {
-	int fd, len;
+	int fd;
 	char *vm_checkpoint_file;
 
-	len = strlen("/dev/vmm/") + strlen(name) + 4 + 1;
-	vm_checkpoint_file = malloc(len);
+	asprintf(&vm_checkpoint_file, "/dev/vmm/%s_mem", name);
 	assert(vm_checkpoint_file != NULL);
-	snprintf(vm_checkpoint_file, len, "/dev/vmm/%s_mem", name);
 
 	/* Open the device file */
 	fd = open(vm_checkpoint_file, O_RDWR, 0);
@@ -155,7 +153,7 @@ vm_open(const char *name)
 		goto err;
 
 	if ((vm->fd_checkpoint = vm_checkpoint_device_open(vm->name)) < 0)
-		printf("Error on opening checkpoint device!\n");
+		goto err;
 
 	return (vm);
 err:
@@ -304,12 +302,6 @@ vm_get_vm_mem(struct vmctx *ctx, char **lowmem, char **highmem,
 		error = -1;
 		goto done;
 	}
-
-#if 1
-	if (memcmp(mmap_vm_lowmem, ctx->baseaddr, ctx->lowmem)) {
-		fprintf(stderr, "%s: lowmem is different\n", __func__);
-	}
-#endif
 
 	if (guest_highmem_size > 0) {
 		mmap_vm_highmem = mmap(NULL, guest_highmem_size, PROT_READ | PROT_WRITE,
@@ -563,9 +555,9 @@ vm_rev_map_gpa(struct vmctx *ctx, void *addr)
 }
 
 /* TODO: maximum size for vmname */
-void vm_get_name(struct vmctx *ctx, char *buf, int max_len)
+void vm_get_name(struct vmctx *ctx, char *buf, size_t max_len)
 {
-	snprintf(buf, max_len, "%s", ctx->name);
+	strlcpy(buf, ctx->name, max_len);
 }
 
 size_t

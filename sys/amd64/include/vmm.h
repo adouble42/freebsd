@@ -400,7 +400,8 @@ int vm_inject_exception(struct vm *vm, int vcpuid, int vector, int err_valid,
  */
 int vm_exit_intinfo(struct vm *vm, int vcpuid, uint64_t intinfo);
 
-/* * This function is called before every VM-entry to retrieve a pending
+/*
+ * This function is called before every VM-entry to retrieve a pending
  * event that should be injected into the guest. This function combines
  * nested events into a double or triple fault.
  *
@@ -411,11 +412,12 @@ int vm_entry_intinfo(struct vm *vm, int vcpuid, uint64_t *info);
 
 int vm_get_intinfo(struct vm *vm, int vcpuid, uint64_t *info1, uint64_t *info2);
 
-/*  Function used to keep track of the guest's TSC offset. The
- *  offset is used by the virutalization extensions to provide a consistent
- *  value for the Time Stamp Counter to the guest.
+/*
+ * Function used to keep track of the guest's TSC offset. The
+ * offset is used by the virutalization extensions to provide a consistent
+ * value for the Time Stamp Counter to the guest.
  *
- *  Return value is 0 on success and non-zero on failure.
+ * Return value is 0 on success and non-zero on failure.
  */
 int vm_set_tsc_offset(struct vm *vm, int vcpu_id, uint64_t offset);
 

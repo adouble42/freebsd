@@ -807,7 +807,8 @@ vm_mmap_getnext(struct vm *vm, vm_paddr_t *gpa, int *segid,
 	}
 }
 
-int vm_get_vmem_stat(struct vm *vm, struct vm_vmem_stat *vmem_stat)
+int
+vm_get_vmem_stat(struct vm *vm, struct vm_vmem_stat *vmem_stat)
 {
 	struct vm_map *vmmap; /* Virtual Machine's VM_map */
 	struct vm_map_entry *entry;
@@ -822,11 +823,10 @@ int vm_get_vmem_stat(struct vm *vm, struct vm_vmem_stat *vmem_stat)
 		entry = entry->next) {
 		printf("Entry idx = %d\n", entry_idx++);
 
-		if ((entry->eflags & MAP_ENTRY_IS_SUB_MAP) != 0) {
+		if ((entry->eflags & MAP_ENTRY_IS_SUB_MAP) != 0)
 			printf("Entry is sub-map\n");
-		} else {
+		else
 			printf("Entry is not sub-map\n");
-		}
 
 		obj_stat = &vmem_stat->obj_stat[obj_idx++]; /* used to gather stats about the objects in memory */
 
