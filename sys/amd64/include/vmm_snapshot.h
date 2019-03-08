@@ -81,7 +81,7 @@ do {										\
 
 /* address variables are pointers to guest memory
  *
- * when RNULL != 0, do not enforce invalid address checks; in stead, make the
+ * when RNULL != 0, do not enforce invalid address checks; instead, make the
  * pointer NULL at restore time
  */
 #define	SNAPSHOT_GADDR_OR_LEAVE(ADDR_VAR, GADDR_SIZE, RNULL, META, RES, LABEL)	\

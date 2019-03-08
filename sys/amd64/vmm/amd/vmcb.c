@@ -459,14 +459,19 @@ vmcb_getany(struct svm_softc *sc, int vcpu, int ident, uint64_t *val)
 {
 	int error = 0;
 
-	if (vcpu < 0 || vcpu >= VM_MAXCPU)
+	if (vcpu < 0 || vcpu >= VM_MAXCPU) {
 		error = EINVAL;
+		goto err;
+	}
 
-	if (ident >= VM_REG_LAST)
+	if (ident >= VM_REG_LAST) {
 		error = EINVAL;
+		goto err;
+	}
 
 	error = vm_get_register(sc->vm, vcpu, ident, val);
 
+err:
 	return (error);
 }
 
@@ -475,14 +480,19 @@ vmcb_setany(struct svm_softc *sc, int vcpu, int ident, uint64_t val)
 {
 	int error = 0;
 
-	if (vcpu < 0 || vcpu >= VM_MAXCPU)
+	if (vcpu < 0 || vcpu >= VM_MAXCPU) {
 		error = EINVAL;
+		goto err;
+	}
 
-	if (ident >= VM_REG_LAST)
+	if (ident >= VM_REG_LAST) {
 		error = EINVAL;
+		goto err;
+	}
 
 	error = vm_set_register(sc->vm, vcpu, ident, val);
 
+err:
 	return (error);
 }
 
