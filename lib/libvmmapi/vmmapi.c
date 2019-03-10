@@ -258,11 +258,7 @@ vm_mmap_memseg(struct vmctx *ctx, vm_paddr_t gpa, int segid, vm_ooffset_t off,
 int
 vm_get_vmem_stat(struct vmctx *ctx, struct vm_vmem_stat *vmem_stat)
 {
-	int error;
-
-	error = ioctl(ctx->fd, VM_GET_VMEM_STAT, vmem_stat);
-
-	return (error);
+	return (ioctl(ctx->fd, VM_GET_VMEM_STAT, vmem_stat));
 }
 
 int vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
@@ -283,7 +279,8 @@ vm_get_vm_mem(struct vmctx *ctx, char **lowmem, char **highmem,
 	char *mmap_vm_lowmem = MAP_FAILED, *mmap_vm_highmem = MAP_FAILED;
 	int error = 0;
 
-	/* This function maps guest memory, marked COW, to the calling process'
+	/*
+	 * This function maps guest memory, marked COW, to the calling process'
 	 * address space.
 	 */
 	mmap_vm_lowmem = mmap(NULL, guest_lowmem_size, PROT_READ | PROT_WRITE,
@@ -546,9 +543,14 @@ vm_rev_map_gpa(struct vmctx *ctx, void *addr)
 }
 
 /* TODO: maximum size for vmname */
-void vm_get_name(struct vmctx *ctx, char *buf, size_t max_len)
+int
+vm_get_name(struct vmctx *ctx, char *buf, size_t max_len)
 {
+	if (max_len < strlen(ctx->name))
+		return (EINVAL);
+
 	strlcpy(buf, ctx->name, max_len);
+	return (0);
 }
 
 size_t
@@ -1661,7 +1663,7 @@ vm_mem_read_from_file(int fd, void *dest, size_t file_offset, size_t len)
 
 	while (read_total < len) {
 		cnt_read = read(fd, dest + read_total, to_read);
-		// TODO - fix for when read returns 0
+		/* TODO - fix for when read returns 0 */
 		if (cnt_read <= 0) {
 			fprintf(stderr,"%s: read error: %d\r\n",
 			__func__,  errno);

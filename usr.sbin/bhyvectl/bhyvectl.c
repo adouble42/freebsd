@@ -1734,7 +1734,13 @@ send_checkpoint_op_req(struct vmctx *ctx, struct checkpoint_op *op)
 
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	vm_get_name(ctx, vmname_buf, MAX_VMNAME - 1);
+
+	err = vm_get_name(ctx, vmname_buf, MAX_VMNAME - 1);
+	if (err != 0) {
+		perror("Failed to get VM name");
+		goto done;
+	}
+
 	snprintf(addr.sun_path, PATH_MAX, "%s/%s", CHECKPOINT_RUN_DIR, vmname_buf);
 
 	if (connect(socket_fd, (struct sockaddr *)&addr,

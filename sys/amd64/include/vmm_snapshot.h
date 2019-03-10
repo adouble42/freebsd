@@ -38,7 +38,7 @@ struct vm_snapshot_buffer {
 	 * or (buf - buf_start) -- the second variation returns a signed value
 	 * so it may not be appropriate
 	 */
-	/* size_t snapshot_len; */
+	/* use vm_get_snapshot_size(meta) */
 };
 
 enum vm_snapshot_op {

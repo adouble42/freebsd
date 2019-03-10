@@ -811,12 +811,17 @@ err_vm_snapshot_kern_data:
 static int
 vm_snapshot_basic_metadata(struct vmctx *ctx, xo_handle_t *xop)
 {
+	int error;
 	size_t memsize;
 	int memflags;
 	char vmname_buf[MAX_VMNAME];
 
 	memset(vmname_buf, 0, MAX_VMNAME);
-	vm_get_name(ctx, vmname_buf, MAX_VMNAME - 1);
+	error = vm_get_name(ctx, vmname_buf, MAX_VMNAME - 1);
+	if (error != 0) {
+		perror("Failed to get VM name");
+		goto err;
+	}
 
 	memsize = vm_get_lowmem_size(ctx) + vm_get_highmem_size(ctx);
 	memflags = vm_get_memflags(ctx);
@@ -828,7 +833,8 @@ vm_snapshot_basic_metadata(struct vmctx *ctx, xo_handle_t *xop)
 	xo_emit_h(xop, "{:" JSON_MEMFLAGS_KEY "/%d}\n", memflags);
 	xo_close_container_h(xop, JSON_BASIC_METADATA_KEY);
 
-	return 0;
+err:
+	return (error);
 }
 
 static int
@@ -1231,7 +1237,8 @@ make_checkpoint_dir()
 /*
  * Create the listening socket for IPC with bhyvectl
  */
-int init_checkpoint_thread(struct vmctx *ctx)
+int
+init_checkpoint_thread(struct vmctx *ctx)
 {
 	struct sockaddr_un addr;
 	int socket_fd;
@@ -1254,7 +1261,13 @@ int init_checkpoint_thread(struct vmctx *ctx)
 
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	vm_get_name(ctx, vmname_buf, MAX_VMNAME - 1);
+
+	err = vm_get_name(ctx, vmname_buf, MAX_VMNAME - 1);
+	if (err != 0) {
+		perror("Failed to get VM name");
+		goto fail;
+	}
+
 	snprintf(addr.sun_path, PATH_MAX, "%s/%s",
 		 CHECKPOINT_RUN_DIR, vmname_buf);
 	unlink(addr.sun_path);
