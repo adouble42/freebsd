@@ -102,22 +102,6 @@ vm_device_open(const char *name)
 	return (fd);
 }
 
-static int
-vm_checkpoint_device_open(const char *name)
-{
-	int fd;
-	char *vm_checkpoint_file;
-
-	asprintf(&vm_checkpoint_file, "/dev/vmm/%s_mem", name);
-	assert(vm_checkpoint_file != NULL);
-
-	/* Open the device file */
-	fd = open(vm_checkpoint_file, O_RDWR, 0);
-
-	free(vm_checkpoint_file);
-	return (fd);
-}
-
 int
 vm_create(const char *name)
 {
