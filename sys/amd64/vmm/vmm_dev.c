@@ -45,13 +45,11 @@ __FBSDID("$FreeBSD$");
 #include <sys/mman.h>
 #include <sys/uio.h>
 #include <sys/proc.h>
-#include <sys/rwlock.h>
 
 #include <vm/vm.h>
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
 #include <vm/vm_object.h>
-#include <vm/vm_extern.h>
 
 #include <machine/vmparam.h>
 #include <machine/vmm.h>
