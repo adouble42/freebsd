@@ -91,11 +91,6 @@ int	vm_get_memseg(struct vmctx *ctx, int ident, size_t *lenp, char *name,
 int	vm_mmap_getnext(struct vmctx *ctx, vm_paddr_t *gpa, int *segid,
 	    vm_ooffset_t *segoff, size_t *len, int *prot, int *flags);
 
-/*
- * Iterate over all of the objects in VMs virtual memory and get stats
- */
-int	vm_get_vmem_stat(struct vmctx *ctx, struct vm_vmem_stat *vmem_stat);
-
 int	vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
 				 size_t *lowmem_size, size_t *highmem_size);
 

@@ -231,7 +231,6 @@ int vm_unassign_pptdev(struct vm *vm, int bus, int slot, int func);
  */
 int vm_mmap_getnext(struct vm *vm, vm_paddr_t *gpa, int *segid,
     vm_ooffset_t *segoff, size_t *len, int *prot, int *flags);
-int vm_get_vmem_stat(struct vm *vm, struct vm_vmem_stat *vmem_stat);
 int vm_get_memseg(struct vm *vm, int ident, size_t *len, bool *sysmem,
     struct vm_object **objptr);
 vm_paddr_t vmm_sysmem_maxaddr(struct vm *vm);

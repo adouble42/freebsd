@@ -87,7 +87,6 @@ static SLIST_HEAD(, vmmdev_softc) head;
 
 static unsigned pr_allow_flag;
 static struct mtx vmmdev_mtx;
-struct vm;
 
 static MALLOC_DEFINE(M_VMMDEV, "vmmdev", "vmmdev");
 
@@ -371,7 +370,6 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	struct vm_cpu_topology *topology;
 	uint64_t *regvals;
 	int *regnums;
-	struct vm_vmem_stat *vmem_stat;
 	struct vm_snapshot_req *snapshot_req;
 
 	error = vmm_priv_check(curthread->td_ucred);
@@ -425,7 +423,6 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	case VM_ALLOC_MEMSEG:
 	case VM_MMAP_MEMSEG:
 	case VM_REINIT:
-	case VM_GET_VMEM_STAT:
 		/*
 		 * ioctls that operate on the entire virtual machine must
 		 * prevent all vcpus from running.
@@ -589,10 +586,6 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		mm = (struct vm_memmap *)data;
 		error = vm_mmap_memseg(sc->vm, mm->gpa, mm->segid, mm->segoff,
 		    mm->len, mm->prot, mm->flags);
-		break;
-	case VM_GET_VMEM_STAT:
-		vmem_stat = (struct vm_vmem_stat *)data;
-		error = vm_get_vmem_stat(sc->vm, vmem_stat);
 		break;
 	case VM_ALLOC_MEMSEG:
 		error = alloc_memseg(sc, (struct vm_memseg *)data);
