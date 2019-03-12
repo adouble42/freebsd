@@ -239,22 +239,6 @@ struct vm_cpu_topology {
 	uint16_t	threads;
 	uint16_t	maxcpus;
 };
-/* SAVE-RESTORE facilities for bhyve */
-#define MAX_VM_OBJS 100
-struct vm_obj_stat {
-	int resident_page_count;
-	int shadow_count;
-	vm_memattr_t memattr;
-	vm_pindex_t size;
-	vm_prot_t e_prot; /* object protection (rwx) */
-	vm_offset_t e_start, e_end; /* objects offset */
-	int ref_count;
-};
-
-struct vm_vmem_stat {
-	struct vm_obj_stat obj_stat[MAX_VM_OBJS];
-	int vm_obj_count;
-};
 
 struct vm_snapshot_req {
 	struct vm_snapshot_meta meta;
@@ -281,7 +265,6 @@ enum {
 	IOCNUM_MMAP_MEMSEG = 16,
 	IOCNUM_MMAP_GETNEXT = 17,
 	IOCNUM_GLA2GPA_NOFAULT = 18,
-	IOCNUM_GET_VMEM_STAT = 19,
 
 	/* register/state accessors */
 	IOCNUM_SET_REGISTER = 20,
@@ -367,8 +350,6 @@ enum {
 	_IOW('v', IOCNUM_MMAP_MEMSEG, struct vm_memmap)
 #define	VM_MMAP_GETNEXT	\
 	_IOWR('v', IOCNUM_MMAP_GETNEXT, struct vm_memmap)
-#define	VM_GET_VMEM_STAT	\
-	_IOWR('v', IOCNUM_GET_VMEM_STAT, struct vm_vmem_stat)
 #define	VM_SET_REGISTER \
 	_IOW('v', IOCNUM_SET_REGISTER, struct vm_register)
 #define	VM_GET_REGISTER \

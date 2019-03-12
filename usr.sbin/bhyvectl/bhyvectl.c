@@ -295,7 +295,6 @@ enum x2apic_state x2apic_state;
 static int unassign_pptdev, bus, slot, func;
 static int run;
 static int get_cpu_topology;
-static int show_vmem_stat;
 static int vm_checkpoint_opt;
 static int vm_suspend_opt;
 static int vcpu_lock_all_opt;
@@ -1474,7 +1473,6 @@ setup_options(bool cpu_intel)
 		{ "get-suspended-cpus", NO_ARG,	&get_suspended_cpus, 	1 },
 		{ "get-intinfo", 	NO_ARG,	&get_intinfo,		1 },
 		{ "get-cpu-topology",	NO_ARG, &get_cpu_topology,	1 },
-		{ "get-vmem-stat", 	NO_ARG,	&show_vmem_stat,	1 },
 		{ "checkpoint", 	REQ_ARG, 0,	SET_CHECKPOINT_FILE},
 		{ "suspend", 		REQ_ARG, 0,	SET_SUSPEND_FILE},
 		{ "vcpu_lock_all", 	NO_ARG,&vcpu_lock_all_opt,		1 },
@@ -1694,27 +1692,6 @@ show_memseg(struct vmctx *ctx)
 		}
 		segid++;
 	}
-}
-
-static int
-show_vm_vmem_stat(struct vmctx *ctx)
-{
-	int error;
-	int i;
-	struct vm_obj_stat *obj_stat;
-	struct vm_vmem_stat vmem_stat;
-
-	error = vm_get_vmem_stat(ctx, &vmem_stat);
-	for (i = 0; i < vmem_stat.vm_obj_count; i++) {
-		obj_stat = &vmem_stat.obj_stat[i];
-		printf("**********VM vmem obj**********\n");
-		printf("resident page count = %d\n", obj_stat->resident_page_count);
-		printf("shadow count = %d\n", obj_stat->shadow_count);
-		printf("vm offset start = 0x%lu\n", obj_stat->e_end);
-		printf("vm offset end = 0x%lu\n", obj_stat->e_start);
-	}
-
-	return (0);
 }
 
 static int
@@ -2466,9 +2443,6 @@ main(int argc, char *argv[])
 
 	if (!error && destroy)
 		vm_destroy(ctx);
-
-	if (!error && show_vmem_stat)
-		error = show_vm_vmem_stat(ctx);
 
 	if (!error && vm_checkpoint_opt)
 		error = send_start_checkpoint(ctx, checkpoint_file);

@@ -235,12 +235,6 @@ vm_mmap_memseg(struct vmctx *ctx, vm_paddr_t gpa, int segid, vm_ooffset_t off,
 	return (error);
 }
 
-int
-vm_get_vmem_stat(struct vmctx *ctx, struct vm_vmem_stat *vmem_stat)
-{
-	return (ioctl(ctx->fd, VM_GET_VMEM_STAT, vmem_stat));
-}
-
 int vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
 			size_t *lowmem_size, size_t *highmem_size)
 {

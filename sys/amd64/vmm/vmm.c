@@ -814,68 +814,6 @@ vm_mmap_getnext(struct vm *vm, vm_paddr_t *gpa, int *segid,
 	}
 }
 
-int
-vm_get_vmem_stat(struct vm *vm, struct vm_vmem_stat *vmem_stat)
-{
-	struct vm_map *vmmap; /* Virtual Machine's VM_map */
-	struct vm_map_entry *entry;
-	struct vm_obj_stat *obj_stat;
-	struct vm_object *obj, *tobj, *lobj;
-	int obj_idx = 0, entry_idx = 0, bobject_idx = 0;
-
-	vmmap = &vm->vmspace->vm_map;
-	vm_map_lock_read(vmmap);
-	printf("Full map size: %lu\nNentries: %d\n", vmmap->size, vmmap->nentries);
-	for(entry = vmmap->header.next; entry != &vmmap->header;
-		entry = entry->next) {
-		printf("Entry idx = %d\n", entry_idx++);
-
-		if ((entry->eflags & MAP_ENTRY_IS_SUB_MAP) != 0)
-			printf("Entry is sub-map\n");
-		else
-			printf("Entry is not sub-map\n");
-
-		obj_stat = &vmem_stat->obj_stat[obj_idx++]; /* used to gather stats about the objects in memory */
-
-		/* information collected from map_entry_t */
-		obj_stat->e_prot = entry->protection;
-		obj_stat->e_start = entry->start;
-		obj_stat->e_end = entry->end;
-
-		obj = entry->object.vm_object;
-		/* get the original object from the list */
-
-		for (lobj = tobj = obj; tobj; tobj = tobj->backing_object) {
-			VM_OBJECT_RLOCK(tobj);
-			printf("Backing object %d, res pages %d\n", bobject_idx++, tobj->resident_page_count);
-			if (lobj != obj)
-				VM_OBJECT_RUNLOCK(lobj);
-			lobj = tobj;
-		}
-
-		VM_OBJECT_RUNLOCK(lobj); /* the ancestor of all objects */
-
-
-		/* information collected from vm_object */
-		VM_OBJECT_RLOCK(obj);
-		obj_stat->shadow_count = obj->shadow_count;
-		obj_stat->resident_page_count = obj->resident_page_count;
-		obj_stat->memattr = obj->memattr;
-		obj_stat->ref_count = obj->ref_count;
-		obj_stat->size = obj->size;
-		VM_OBJECT_RUNLOCK(obj);
-		printf("protection:%c%c%c\n", (obj_stat->e_prot & VM_PROT_READ)?'r':'-',
-			(obj_stat->e_prot & VM_PROT_WRITE)?'w':'-',
-			(obj_stat->e_prot & VM_PROT_EXECUTE)?'x':'-');
-		if (obj_idx >= 1000)
-			return (ENOMEM);
-	}
-	vm_map_unlock_read(vmmap);
-	vmem_stat->vm_obj_count = obj_idx;
-
-	return (0);
-}
-
 struct mem_seg * vm_get_memsegs(struct vm *vm)
 {
 	return (vm->mem_segs);
