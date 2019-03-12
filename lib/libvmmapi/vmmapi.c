@@ -73,7 +73,6 @@ __FBSDID("$FreeBSD$");
 
 struct vmctx {
 	int	fd;
-	int	fd_checkpoint;
 	uint32_t lowmem_limit;
 	int	memflags;
 	size_t	lowmem;
@@ -141,9 +140,6 @@ vm_open(const char *name)
 	strcpy(vm->name, name);
 
 	if ((vm->fd = vm_device_open(vm->name)) < 0)
-		goto err;
-
-	if ((vm->fd_checkpoint = vm_checkpoint_device_open(vm->name)) < 0)
 		goto err;
 
 	return (vm);
@@ -269,48 +265,6 @@ int vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
 	*highmem_size = ctx->highmem;
 
 	return 0;
-}
-
-int
-vm_get_vm_mem(struct vmctx *ctx, char **lowmem, char **highmem,
-	      char *guest_baseaddr, size_t guest_lowmem_size,
-	      size_t guest_highmem_size)
-{
-	char *mmap_vm_lowmem = MAP_FAILED, *mmap_vm_highmem = MAP_FAILED;
-	int error = 0;
-
-	/*
-	 * This function maps guest memory, marked COW, to the calling process'
-	 * address space.
-	 */
-	mmap_vm_lowmem = mmap(NULL, guest_lowmem_size, PROT_READ | PROT_WRITE,
-			      MAP_SHARED, ctx->fd_checkpoint, 0);
-	if (mmap_vm_lowmem == MAP_FAILED) {
-		perror("Failed to mmap vm's lowmem segment");
-		error = -1;
-		goto done;
-	}
-
-	if (guest_highmem_size > 0) {
-		mmap_vm_highmem = mmap(NULL, guest_highmem_size, PROT_READ | PROT_WRITE,
-				       MAP_SHARED, ctx->fd_checkpoint, 4*GB);
-		if (mmap_vm_highmem == MAP_FAILED) {
-			perror("Failed to mmap vm's highmem segment");
-			error = -1;
-			goto done;
-		}
-	}
-
-	*lowmem = mmap_vm_lowmem;
-	*highmem = mmap_vm_highmem;
-
-	return (0);
-
-done:
-	if (mmap_vm_lowmem != MAP_FAILED)
-		munmap(mmap_vm_lowmem, guest_lowmem_size);
-
-	return (error);
 }
 
 int

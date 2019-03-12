@@ -76,15 +76,9 @@ struct devmem_softc {
 	SLIST_ENTRY(devmem_softc) link;
 };
 
-struct vmmdev_checkpoint_softc {
-	struct vmmdev_softc *vmmdev;
-	struct cdev	*cdev;
-};
-
 struct vmmdev_softc {
 	struct vm	*vm;		/* vm instance cookie */
 	struct cdev	*cdev;
-	struct vmmdev_checkpoint_softc *vmmdev_checkpoint;
 	SLIST_ENTRY(vmmdev_softc) link;
 	SLIST_HEAD(, devmem_softc) devmem;
 	int		flags;
@@ -98,7 +92,6 @@ static struct mtx vmmdev_mtx;
 struct vm;
 
 static MALLOC_DEFINE(M_VMMDEV, "vmmdev", "vmmdev");
-static MALLOC_DEFINE(M_VMMDEV_CHECKPOINT, "vmmdev_checkpoint", "vmmdev_checkpoint");
 
 SYSCTL_DECL(_hw_vmm);
 
@@ -194,13 +187,6 @@ vmmdev_lookup(const char *name)
 
 static struct vmmdev_softc *
 vmmdev_lookup2(struct cdev *cdev)
-{
-
-	return (cdev->si_drv1);
-}
-
-static struct vmmdev_checkpoint_softc *
-vmmdev_checkpoint_lookup2(struct cdev *cdev)
 {
 
 	return (cdev->si_drv1);
@@ -931,12 +917,6 @@ vmmdev_destroy(void *arg)
 		mtx_unlock(&vmmdev_mtx);
 	}
 
-	if (sc->vmmdev_checkpoint != NULL) {
-		if (sc->vmmdev_checkpoint->cdev != NULL)
-			destroy_dev(sc->vmmdev_checkpoint->cdev);
-		free(sc->vmmdev_checkpoint, M_VMMDEV_CHECKPOINT);
-	}
-
 	free(sc, M_VMMDEV);
 }
 
@@ -1014,167 +994,14 @@ static struct cdevsw vmmdevsw = {
 	.d_write	= vmmdev_rw,
 };
 
-static inline int
-mark_entry_cow(struct vm_map *vmmap, struct vm_map_entry *entry, struct vm_object *obj)
-{
-	if ((entry->eflags & MAP_ENTRY_NEEDS_COPY) == 0 &&
-			(entry->protection & VM_PROT_WRITE) != 0) {
-		pmap_protect(vmmap->pmap,
-				entry->start,
-				entry->end,
-				entry->protection & ~VM_PROT_WRITE);
-	}
-
-	VM_OBJECT_WLOCK(obj);
-	vm_object_clear_flag(obj, OBJ_ONEMAPPING);
-	VM_OBJECT_WUNLOCK(obj);
-
-	/* Not sure which one is appropiate here. The commented one seems to
-	 * break the virtio-net driver after checkpointing. Removing
-	 * MAP_ENTRY_NEEDS_COPY seems to solve the problem, but I don't think
-	 * it's complete like this.
-	 */
-	//entry->eflags |= (MAP_ENTRY_COW|MAP_ENTRY_NEEDS_COPY);
-	entry->eflags |= (MAP_ENTRY_COW);
-
-	return (0);
-}
-
-/*
- * Search for a given vm_object in the vmspace of the current
- * process and mark its entry COW
- */
-static int
-make_vmobject_cow(struct vm_object *obj)
-{
-	struct vmspace *vmspace;
-	struct vm_map *vmmap;
-	struct vm_map_entry *entry;
-	int found = 0;
-
-	/* get bhyverun proc vmspace */
-	vmspace = vmspace_acquire_ref(curproc);
-
-	if (vmspace == NULL) {
-		printf("Failed acquire vmspace for bhyve-process\n");
-		return (-1);
-	}
-
-	vmmap = &vmspace->vm_map;
-
-	vm_map_lock(vmmap);
-	if (vmmap->busy)
-		vm_map_wait_busy(vmmap);
-
-	for(entry = vmmap->header.next; entry != &vmmap->header;
-		entry = entry->next) {
-
-		if ((entry->eflags & MAP_ENTRY_IS_SUB_MAP) != 0 ||
-			entry->object.vm_object == NULL) {
-			continue;
-		}
-
-		if (entry->object.vm_object == obj || /* if this is the object itself */
-			entry->object.vm_object->backing_object == obj) { /* if it is backed by this object: shadow vm_object */
-			if (entry->wired_count == 0 ||
-					(entry->protection & VM_PROT_WRITE) == 0)
-				mark_entry_cow(vmmap, entry, obj);
-				found = 1;
-		}
-	}
-
-	vm_map_unlock(vmmap);
-	vmspace_free(vmspace);
-
-	if (found == 0) {
-		printf("Failed to find object in vmspace");
-		return (-2);
-	}
-
-	return (0);
-}
-
-static int
-vmmdev_checkpoint_mmap_single(struct cdev *cdev, vm_ooffset_t *offset, vm_size_t mapsize,
-    struct vm_object **objp, int nprot)
-{
-	struct vmmdev_checkpoint_softc *checkpoint_sc;
-	struct vmmdev_softc *sc;
-	vm_paddr_t gpa;
-	size_t len;
-	int flags, prot;
-	vm_ooffset_t segoff, first, last;
-	int error, found, segid;
-	bool sysmem;
-
-	first = *offset;
-	last = first + mapsize;
-	if ((nprot & PROT_EXEC) || first < 0 || first >= last)
-		return (EINVAL);
-
-	checkpoint_sc = vmmdev_checkpoint_lookup2(cdev);
-	if (checkpoint_sc == NULL) {
-		/* virtual machine is in the process of being created */
-		return (EINVAL);
-	}
-
-	sc = checkpoint_sc->vmmdev;
-
-	error = vcpu_lock_all(sc);
-	if (error != 0)
-		return (error);
-
-	gpa = 0;
-	found = 0;
-	while (!found) {
-		error = vm_mmap_getnext(sc->vm, &gpa, &segid, &segoff, &len,
-		    &flags, &prot);
-		if (error)
-			break;
-
-		if (first >= gpa && last <= gpa + len)
-			found = 1;
-		else
-			gpa += len;
-	}
-
-	if (found) {
-		error = vm_get_memseg(sc->vm, segid, &len, &sysmem, objp);
-		KASSERT(error == 0 && *objp != NULL,
-		    ("%s: invalid memory segment %d", __func__, segid));
-		if (sysmem) {
-			vm_object_reference(*objp);
-			*offset = segoff + (first - gpa);
-			make_vmobject_cow(*objp);
-		} else {
-			error = EINVAL;
-		}
-	}
-
-	//make_vmobject_cow(*objp);
-
-	//vcpu_unlock_one(sc, VM_MAXCPU - 1);
-	vcpu_unlock_all(sc);
-	return (error);
-}
-
-static struct cdevsw vmmdev_checkpoint = {
-	.d_name		= "vmmdev_checkpoint",
-	.d_version	= D_VERSION,
-	.d_mmap_single	= vmmdev_checkpoint_mmap_single,
-};
-
-
 static int
 sysctl_vmm_create(SYSCTL_HANDLER_ARGS)
 {
 	struct vm *vm;
 	struct cdev *cdev;
-	struct cdev *cdev_checkpoint;
 	struct vmmdev_softc *sc, *sc2;
 	char *buf;
 	int error, buflen;
-	struct vmmdev_checkpoint_softc *checkpoint_sc;
 
 	error = vmm_priv_check(req->td->td_ucred);
 	if (error)
@@ -1203,8 +1030,6 @@ sysctl_vmm_create(SYSCTL_HANDLER_ARGS)
 	sc->vm = vm;
 
 	SLIST_INIT(&sc->devmem);
-
-	checkpoint_sc = malloc(sizeof(struct vmmdev_checkpoint_softc), M_VMMDEV_CHECKPOINT, M_WAITOK | M_ZERO);
 
 	/*
 	 * Lookup the name again just in case somebody sneaked in when we
@@ -1239,29 +1064,7 @@ sysctl_vmm_create(SYSCTL_HANDLER_ARGS)
 
 out:
 	free(buf, M_VMMDEV);
-	if (error != 0)
-		return (error);
-
-	/* device used for checkpointing memory */
-	error = make_dev_p(MAKEDEV_CHECKNAME, &cdev_checkpoint, &vmmdev_checkpoint, NULL,
-			   UID_ROOT, GID_WHEEL, 0600, "vmm/%s_mem", buf);
-
-	/* failed to create checkpoint device: free mem */
-	if (error != 0) {
-		printf("Failed to create checkpoint device\n");
-		free(checkpoint_sc, M_VMMDEV_CHECKPOINT);
-		return -1;
-	}
-
-	/* add device checkpoint info to vmmdev_softc */
-	mtx_lock(&vmmdev_mtx);
-	sc->vmmdev_checkpoint = checkpoint_sc;
-	sc->vmmdev_checkpoint->cdev = cdev_checkpoint;
-	sc->vmmdev_checkpoint->cdev->si_drv1 = sc->vmmdev_checkpoint;
-	sc->vmmdev_checkpoint->vmmdev = sc;
-	mtx_unlock(&vmmdev_mtx);
-
-	return (0);
+	return (error);
 }
 SYSCTL_PROC(_hw_vmm, OID_AUTO, create,
 	    CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_PRISON,

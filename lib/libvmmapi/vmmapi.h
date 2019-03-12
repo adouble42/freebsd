@@ -99,11 +99,6 @@ int	vm_get_vmem_stat(struct vmctx *ctx, struct vm_vmem_stat *vmem_stat);
 int	vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
 				 size_t *lowmem_size, size_t *highmem_size);
 
-/* Maps VMs memory in the calling process */
-int
-vm_get_vm_mem(struct vmctx *ctx, char **lowmem, char **highmem, char *guest_baseaddr,
-		size_t guest_lowmem_size, size_t guest_highmem_size);
-
 /*
  * Create a device memory segment identified by 'segid'.
  *
