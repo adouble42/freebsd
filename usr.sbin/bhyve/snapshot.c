@@ -994,11 +994,9 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 	int fd_checkpoint = 0, kdata_fd = 0;
 	int ret = 0;
 	int error = 0;
-	char *mmap_vm_lowmem = MAP_FAILED;
-	char *mmap_vm_highmem = MAP_FAILED;
-	char *mmap_checkpoint_file = MAP_FAILED;
 	size_t guest_lowmem, guest_highmem, guest_memsize;
 	char *guest_baseaddr;
+	char *guest_lowmem_addr, *guest_highmem_addr;
 	xo_handle_t *xop = NULL;
 	char *meta_filename = NULL;
 	char *kdata_filename = NULL;
@@ -1065,17 +1063,9 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 		goto done;
 	}
 
-	/*
-	 * mmap VMs memory in bhyverun virtual memory: the original address space
-	 * (of the VM) will be COW
-	 */
-	ret = vm_get_vm_mem(ctx, &mmap_vm_lowmem, &mmap_vm_highmem,
-			guest_baseaddr, guest_lowmem, guest_highmem);
-	if (ret != 0) {
-		fprintf(stderr, "Could not mmap guests lowmem and highmem\n");
-		error = ret;
-		goto done;
-	}
+	guest_lowmem_addr = guest_baseaddr;
+	if (guest_highmem > 0)
+		guest_highmem_addr = guest_baseaddr + 4*GB;
 
 	ret = vm_pause_user_devs(ctx);
 	if (ret != 0) {
@@ -1100,11 +1090,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 		goto done_unlock;
 	}
 
-	/*
-	 * mmap checkpoint file in memory so we can easily copy VMs
-	 * system address space (lowmem + highmem) from kernel space
-	 */
-	if (vm_mem_write_to_file(fd_checkpoint, mmap_vm_lowmem,
+	if (vm_mem_write_to_file(fd_checkpoint, guest_lowmem_addr,
 				0, guest_lowmem) != 0) {
 		perror("Could not write lowmem");
 		error = -1;
@@ -1112,7 +1098,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 	}
 
 	if (guest_highmem > 0) {
-		if (vm_mem_write_to_file(fd_checkpoint, mmap_vm_highmem,
+		if (vm_mem_write_to_file(fd_checkpoint, guest_highmem_addr,
 				guest_lowmem, guest_highmem) != 0) {
 			perror("Could not write highmem");
 			error = -1;
@@ -1147,12 +1133,6 @@ done:
 		fprintf(stderr, "Could not resume devices\r\n");
 	if (fd_checkpoint > 0)
 		close(fd_checkpoint);
-	if (mmap_checkpoint_file != MAP_FAILED)
-		munmap(mmap_checkpoint_file, guest_memsize);
-	if (mmap_vm_lowmem != MAP_FAILED)
-		munmap(mmap_vm_lowmem, guest_lowmem);
-	if (mmap_vm_highmem != MAP_FAILED)
-		munmap(mmap_vm_highmem, guest_highmem);
 	if (meta_filename != NULL)
 		free(meta_filename);
 	if (kdata_filename != NULL)
