@@ -625,7 +625,7 @@ vmexit_vmx(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 	    vmexit->u.vmx.exit_qualification);
 	fprintf(stderr, "\tinst_type\t\t%d\n", vmexit->u.vmx.inst_type);
 	fprintf(stderr, "\tinst_error\t\t%d\n", vmexit->u.vmx.inst_error);
-//#ifdef DEBUG_EPT_MISCONFIG
+#ifdef DEBUG_EPT_MISCONFIG
 	if (vmexit->u.vmx.exit_reason == EXIT_REASON_EPT_MISCONFIG) {
 		vm_get_register(ctx, *pvcpu,
 		    VMCS_IDENT(VMCS_GUEST_PHYSICAL_ADDRESS),
@@ -639,7 +639,7 @@ vmexit_vmx(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 		    ept_misconfig_pte[1], ept_misconfig_pte[2],
 		    ept_misconfig_pte[3]);
 	}
-//#endif	/* DEBUG_EPT_MISCONFIG */
+#endif	/* DEBUG_EPT_MISCONFIG */
 	return (VMEXIT_ABORT);
 }
 
