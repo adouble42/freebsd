@@ -132,7 +132,6 @@ struct vmspace;
 struct vm_object;
 struct vm_guest_paging;
 struct pmap;
-struct vm_vmem_stat;
 struct vmcx_state;
 enum snapshot_req;
 
