@@ -451,9 +451,6 @@ void vm_copyin(struct vm *vm, int vcpuid, struct vm_copyinfo *copyinfo,
     void *kaddr, size_t len);
 void vm_copyout(struct vm *vm, int vcpuid, const void *kaddr,
     struct vm_copyinfo *copyinfo, size_t len);
-int
-vm_create_checkpoint_memseg(struct vm_object *old_obj, struct vm_object *new_obj,
-				struct mem_seg *original_mseg, struct mem_seg *checkpoint_mseg);
 
 int vcpu_trace_exceptions(struct vm *vm, int vcpuid);
 #endif	/* KERNEL */
@@ -700,90 +697,6 @@ struct vm_exit {
 		} suspended;
 		struct vm_task_switch task_switch;
 	} u;
-};
-
-/* Used when saving and restoring vmcs for Intel or vmcb for AMD processors. */
-struct vmcx_state {
-	uint64_t guest_cr0;
-	uint64_t guest_cr2;
-	uint64_t guest_cr3;
-	uint64_t guest_cr4;
-	uint64_t guest_dr6;
-	uint64_t guest_dr7;
-
-	uint64_t guest_rax;
-	uint64_t guest_rsp;
-	uint64_t guest_rip;
-	uint64_t guest_rflags;
-
-	uint64_t guest_es;
-	uint64_t guest_cs;
-	uint64_t guest_ss;
-	uint64_t guest_ds;
-	uint64_t guest_fs;
-	uint64_t guest_gs;
-
-	struct seg_desc guest_es_desc;
-	struct seg_desc guest_cs_desc;
-	struct seg_desc guest_ss_desc;
-	struct seg_desc guest_ds_desc;
-	struct seg_desc guest_fs_desc;
-	struct seg_desc guest_gs_desc;
-
-	uint64_t guest_tr;
-	uint64_t guest_ldtr;
-	uint64_t guest_efer;
-
-	struct seg_desc guest_tr_desc;
-	struct seg_desc guest_ldtr_desc;
-	struct seg_desc guest_idtr_desc;
-	struct seg_desc guest_gdtr_desc;
-
-	uint64_t guest_pdpte0;
-	uint64_t guest_pdpte1;
-	uint64_t guest_pdpte2;
-	uint64_t guest_pdpte3;
-
-	uint64_t guest_ia32_sysenter_cs;
-	uint64_t guest_ia32_sysenter_esp;
-	uint64_t guest_ia32_sysenter_eip;
-	uint64_t guest_ia32_efer;
-
-	uint64_t guest_interruptibility;
-	uint64_t guest_activity;
-
-	uint64_t vmcs_entry_ctls;
-	uint64_t vmcs_exit_ctls;
-
-	uint64_t guest_intr_shadow;
-
-	uint64_t vmcb_npt;		    // 8 bytes
-
-	uint64_t vmcb_off_cr_intercept;	    // 4 bytes
-	uint64_t vmcb_off_dr_intercept;	    // 4 bytes
-	uint64_t vmcb_off_exc_intercept;    // 4 bytes
-	uint64_t vmcb_off_inst1_intercept; // 4 bytes
-	uint64_t vmcb_off_inst2_intercept; // 4 bytes
-
-	uint64_t vmcb_off_tlb_ctrl;	    // 4 bytes
-
-	uint64_t vmcb_off_exitinfo1;	    // 8 bytes
-	uint64_t vmcb_off_exitinfo2;	    // 8 bytes
-	uint64_t vmcb_off_exitintinfo;	    // 8 bytes
-	uint64_t vmcb_off_virq;		    // 8 bytes
-	uint64_t vmcb_off_guest_pat;	    // 8 bytes
-
-
-	uint64_t vmcb_off_avic_bar;	    // 8 bytes
-	uint64_t vmcb_off_avic_page;	    // 8 bytes
-	uint64_t vmcb_off_avic_lt;	    // 8 bytes
-	uint64_t vmcb_off_avic_pt;	    // 8 bytes
-
-	uint64_t vmcb_off_io_perm;	    // 8 bytes
-	uint64_t vmcb_off_msr_perm;	    // 8 bytes
-
-	uint64_t vmcb_off_asid;		    // 4 bytes
-	uint64_t vmcb_off_exit_reason;	    // 8 bytes
 };
 
 /* APIs to inject faults into the guest */

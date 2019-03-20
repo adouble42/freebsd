@@ -994,7 +994,6 @@ sysctl_vmm_create(SYSCTL_HANDLER_ARGS)
 
 	sc = malloc(sizeof(struct vmmdev_softc), M_VMMDEV, M_WAITOK | M_ZERO);
 	sc->vm = vm;
-
 	SLIST_INIT(&sc->devmem);
 
 	/*

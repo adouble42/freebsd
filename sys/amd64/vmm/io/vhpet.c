@@ -373,8 +373,8 @@ vhpet_start_counting(struct vhpet *vhpet)
 		 * Restart the timers based on the value of the main counter
 		 * when it stopped counting.
 		 */
-		vhpet_start_timer(vhpet, i,
-		    vhpet->countbase, vhpet->countbase_sbt);
+		vhpet_start_timer(vhpet, i, vhpet->countbase,
+		    vhpet->countbase_sbt);
 	}
 }
 

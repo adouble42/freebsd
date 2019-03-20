@@ -298,7 +298,8 @@ pci_vtnet_snapshot(void *vsc, struct vm_snapshot_meta *meta)
 
 	DPRINTF(("vtnet: device snapshot requested !\n"));
 
-	/* Queues and consts should have been saved by the more generic
+	/*
+	 * Queues and consts should have been saved by the more generic
 	 * vi_pci_snapshot function. We need to save only our features and
 	 * config.
 	 */

@@ -1019,9 +1019,11 @@ main(int argc, char *argv[])
 	bool gdb_stop;
 	struct vmctx *ctx;
 	size_t memsize;
-	char *optstr, *restore_file = NULL;
-	char *receive_migration = NULL;
+	char *optstr, *restore_file, *receive_migration;
 	struct restore_state rstate;
+
+	restore_file = NULL;
+	receive_migration = NULL;
 
 	bvmcons = 0;
 	progname = basename(argv[0]);
@@ -1293,7 +1295,6 @@ main(int argc, char *argv[])
 	/*
 	 * build the guest tables, MP etc.
 	 */
-
 	if (mptgen) {
 		error = mptable_build(ctx, guest_ncpus);
 		if (error) {
