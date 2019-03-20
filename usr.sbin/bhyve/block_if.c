@@ -154,7 +154,6 @@ blockif_enqueue(struct blockif_ctxt *bc, struct blockif_req *breq,
 		off = breq->br_offset;
 		for (i = 0; i < breq->br_iovcnt; i++)
 			off += breq->br_iov[i].iov_len;
-
 		break;
 	default:
 		off = OFF_MAX;
@@ -175,7 +174,6 @@ blockif_enqueue(struct blockif_ctxt *bc, struct blockif_req *breq,
 	else
 		be->be_status = BST_BLOCK;
 	TAILQ_INSERT_TAIL(&bc->bc_pendq, be, be_link);
-
 	return (be->be_status == BST_PEND);
 }
 

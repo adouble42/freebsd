@@ -120,6 +120,12 @@ struct vcpu {
 	uint64_t	tsc_offset;	/* (o) TSC offsetting */
 };
 
+#define	vcpu_lock_initialized(v) mtx_initialized(&((v)->mtx))
+#define	vcpu_lock_init(v)	mtx_init(&((v)->mtx), "vcpu lock", 0, MTX_SPIN)
+#define	vcpu_lock(v)		mtx_lock_spin(&((v)->mtx))
+#define	vcpu_unlock(v)		mtx_unlock_spin(&((v)->mtx))
+#define	vcpu_assert_locked(v)	mtx_assert(&((v)->mtx), MA_OWNED)
+
 struct mem_map {
 	vm_paddr_t	gpa;
 	size_t		len;
@@ -166,13 +172,6 @@ struct vm {
 	uint16_t	threads;		/* (o) num of threads/core */
 	uint16_t	maxcpus;		/* (o) max pluggable cpus */
 };
-
-
-#define	vcpu_lock_initialized(v) mtx_initialized(&((v)->mtx))
-#define	vcpu_lock_init(v)	mtx_init(&((v)->mtx), "vcpu lock", 0, MTX_SPIN)
-#define	vcpu_lock(v)		mtx_lock_spin(&((v)->mtx))
-#define	vcpu_unlock(v)		mtx_unlock_spin(&((v)->mtx))
-#define	vcpu_assert_locked(v)	mtx_assert(&((v)->mtx), MA_OWNED)
 
 static int vmm_initialized;
 
@@ -1692,11 +1691,9 @@ vm_run(struct vm *vm, struct vm_run *vmrun)
 
 	if (!CPU_ISSET(vcpuid, &vm->active_cpus))
 		return (EINVAL);
-	//	CPU_SET_ATOMIC(vcpuid, &vm->active_cpus);
 
 	if (CPU_ISSET(vcpuid, &vm->suspended_cpus))
 		return (EINVAL);
-	//	CPU_SET_ATOMIC(vcpuid, &vm->suspended_cpus);
 
 	pmap = vmspace_pmap(vm->vmspace);
 	vcpu = &vm->vcpu[vcpuid];

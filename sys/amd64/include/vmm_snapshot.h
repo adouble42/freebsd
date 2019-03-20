@@ -22,23 +22,27 @@ enum snapshot_req {
 };
 
 struct vm_snapshot_buffer {
-	/* R/O for device-specific functions;
-	 * written by generic snapshot functions
+	/*
+	 * R/O for device-specific functions;
+	 * written by generic snapshot functions.
 	 */
 	uint8_t *const buf_start;
 	const size_t buf_size;
 
-	/* R/W for device-specific functions
-	 * used to keep track of buffer current position and remaining size
+	/*
+	 * R/W for device-specific functions used to keep track of buffer
+	 * current position and remaining size.
 	 */
 	uint8_t *buf;
 	size_t buf_rem;
 
-	/* length of the snapshot is either determined as (buf_size - buf_rem)
+	/*
+	 * Length of the snapshot is either determined as (buf_size - buf_rem)
 	 * or (buf - buf_start) -- the second variation returns a signed value
-	 * so it may not be appropriate
+	 * so it may not be appropriate.
+	 *
+	 * Use vm_get_snapshot_size(meta).
 	 */
-	/* use vm_get_snapshot_size(meta) */
 };
 
 enum vm_snapshot_op {
@@ -79,10 +83,11 @@ do {										\
 #define	SNAPSHOT_VAR_OR_LEAVE(DATA, META, RES, LABEL)				\
 	SNAPSHOT_BUF_OR_LEAVE(&(DATA), sizeof(DATA), (META), (RES), LABEL)
 
-/* address variables are pointers to guest memory
+/*
+ * Address variables are pointers to guest memory.
  *
- * when RNULL != 0, do not enforce invalid address checks; instead, make the
- * pointer NULL at restore time
+ * When RNULL != 0, do not enforce invalid address checks; instead, make the
+ * pointer NULL at restore time.
  */
 #define	SNAPSHOT_GADDR_OR_LEAVE(ADDR_VAR, GADDR_SIZE, RNULL, META, RES, LABEL)	\
 do {										\

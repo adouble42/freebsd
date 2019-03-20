@@ -2665,6 +2665,7 @@ vmx_exit_process(struct vmx *vmx, int vcpu, struct vm_exit *vmexit)
 	case EXIT_REASON_VMXON:
 		SDT_PROBE3(vmm, vmx, exit, vminsn, vmx, vcpu, vmexit);
 		vmexit->exitcode = VM_EXITCODE_VMINSN;
+		break;
 	default:
 		SDT_PROBE4(vmm, vmx, exit, unknown,
 		    vmx, vcpu, vmexit, reason);
@@ -2840,7 +2841,7 @@ static int
 vmx_run(void *arg, int vcpu, register_t rip, pmap_t pmap,
     struct vm_eventinfo *evinfo)
 {
-	int rc, handled, launched = 0;
+	int rc, handled, launched;
 	struct vmx *vmx;
 	struct vm *vm;
 	struct vmxctx *vmxctx;
@@ -2857,6 +2858,7 @@ vmx_run(void *arg, int vcpu, register_t rip, pmap_t pmap,
 	vmxctx = &vmx->ctx[vcpu];
 	vlapic = vm_lapic(vm, vcpu);
 	vmexit = vm_exitinfo(vm, vcpu);
+	launched = 0;
 
 	KASSERT(vmxctx->pmap == pmap,
 	    ("pmap %p different than ctx pmap %p", pmap, vmxctx->pmap));
@@ -3823,35 +3825,6 @@ vmx_snapshot_vmi(void *arg, struct vm_snapshot_meta *meta)
 
 		vmxctx = &vmx->ctx[i];
 
-#if 0
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rdi, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rsi, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rdx, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rcx, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r8, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r9, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rax, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rbx, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rbp, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r10, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r11, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r12, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r13, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r14, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r15, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_cr2, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr0, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr1, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr2, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr3, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr6, meta, ret, done);
-
-		/* host registers are not overwritten - no point */
-
-		SNAPSHOT_VAR_OR_LEAVE(vmxctx->inst_fail_status, meta, ret, done);
-		if (meta->op == VM_SNAPSHOT_SAVE)
-			vmx->eptgen[i] = vmxctx->pmap->pm_eptgen - 1;
-#endif
 		new_pmap = vmxctx->pmap;
 		SNAPSHOT_BUF_OR_LEAVE(vmxctx, sizeof(*vmxctx), meta, ret, done);
 		vmxctx->pmap = new_pmap;

@@ -114,7 +114,8 @@ const struct vm_snapshot_kern_info snapshot_kern_structs[] = {
 	{ "vrtc",	STRUCT_VRTC	},
 };
 
-/* TODO: Harden this function and all of its callers since 'base_str' is a user
+/*
+ * TODO: Harden this function and all of its callers since 'base_str' is a user
  * provided string.
  */
 static char *

@@ -40,7 +40,6 @@
 
 #include <assert.h>
 
-
 #define	PCI_BARMAX	PCIR_MAX_BAR_0	/* BAR registers in a Type 0 header */
 
 struct vmctx;
