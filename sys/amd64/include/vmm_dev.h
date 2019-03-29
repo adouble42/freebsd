@@ -239,24 +239,6 @@ struct vm_cpu_topology {
 	uint16_t	threads;
 	uint16_t	maxcpus;
 };
-/*
- * Snapshot facilities for bhyve.
- */
-#define MAX_VM_OBJS 100
-struct vm_obj_stat {
-	int resident_page_count;
-	int shadow_count;
-	vm_memattr_t memattr;
-	vm_pindex_t size;
-	vm_prot_t e_prot; /* object protection (rwx) */
-	vm_offset_t e_start, e_end; /* objects offset */
-	int ref_count;
-};
-
-struct vm_vmem_stat {
-	struct vm_obj_stat obj_stat[MAX_VM_OBJS];
-	int vm_obj_count;
-};
 
 struct vm_snapshot_req {
 	struct vm_snapshot_meta meta;
