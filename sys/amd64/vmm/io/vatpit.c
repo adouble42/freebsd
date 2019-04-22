@@ -477,7 +477,7 @@ vatpit_snapshot(struct vatpit *vatpit, struct vm_snapshot_meta *meta)
 		SNAPSHOT_VAR_OR_LEAVE(channel->now_sbt, meta, ret, done);
 		SNAPSHOT_BUF_OR_LEAVE(channel->cr, sizeof(channel->cr),
 				      meta, ret, done);
-		SNAPSHOT_BUF_OR_LEAVE(channel->ol, sizeof(channel->cr),
+		SNAPSHOT_BUF_OR_LEAVE(channel->ol, sizeof(channel->ol),
 				      meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(channel->slatched, meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(channel->status, meta, ret, done);
