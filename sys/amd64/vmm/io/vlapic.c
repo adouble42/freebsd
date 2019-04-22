@@ -1685,8 +1685,16 @@ vlapic_reset_callout(struct vlapic *vlapic, uint32_t ccr)
 		    vlapic_callout_handler, vlapic, 0);
 	} else {
 		/* even if the CCR was 0, periodic timers should be reset */
-		if (vlapic_periodic_timer(vlapic))
+		if (vlapic_periodic_timer(vlapic)) {
+			binuptime(&vlapic->timer_fire_bt);
+			bintime_add(&vlapic->timer_fire_bt,
+				    &vlapic->timer_period_bt);
+			sbt = bttosbt(vlapic->timer_period_bt);
+
 			callout_stop(&vlapic->callout);
+			callout_reset_sbt(&vlapic->callout, sbt, 0,
+					  vlapic_callout_handler, vlapic, 0);
+		}
 	}
 
 	VLAPIC_TIMER_UNLOCK(vlapic);
