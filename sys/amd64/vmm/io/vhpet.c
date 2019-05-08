@@ -154,10 +154,6 @@ vhpet_counter(struct vhpet *vhpet, sbintime_t *nowptr)
 	sbintime_t now, delta;
 
 	val = vhpet->countbase;
-	/* Since the countbase can be set by the guest at any point, we cannot
-	 * directly set it during snapshot/restore because it can be
-	 * overwritten.
-	 */
 	if (vhpet_counter_enabled(vhpet)) {
 		now = sbinuptime();
 		delta = now - vhpet->countbase_sbt;
