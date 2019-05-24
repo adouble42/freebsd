@@ -106,7 +106,6 @@ const struct vm_snapshot_kern_info snapshot_kern_structs[] = {
 	{ "vmx",	STRUCT_VMX	},
 	{ "vioapic",	STRUCT_VIOAPIC	},
 	{ "vlapic",	STRUCT_VLAPIC	},
-	{ "lapic",	STRUCT_LAPIC	},
 	{ "vmcx",	STRUCT_VMCX	},
 	{ "vatpit",	STRUCT_VATPIT	},
 	{ "vatpic",	STRUCT_VATPIC	},

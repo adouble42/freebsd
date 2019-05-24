@@ -1694,6 +1694,7 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 {
 	int i, ret;
 	struct vlapic *vlapic;
+	struct LAPIC *lapic;
 	uint32_t ccr;
 	int vcpuid;
 
@@ -1713,6 +1714,9 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 			ret = (EINVAL);
 			goto done;
 		}
+		/* snapshot the page first; timer period depends on icr_timer */
+		lapic = vlapic->apic_page;
+		SNAPSHOT_BUF_OR_LEAVE(lapic, PAGE_SIZE, meta, ret, done);
 
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->esr_pending, meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->esr_firing, meta, ret, done);
@@ -1751,27 +1755,6 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 			 */
 			vlapic_reset_callout(vlapic, ccr);
 		}
-	}
-
-done:
-	return (ret);
-}
-
-int
-vlapic_lapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	int i, ret;
-	struct vlapic *vlapic;
-
-	KASSERT(vm != NULL, ("%s: arg was NULL", __func__));
-
-	ret = 0;
-
-	for (i = 0; i < VM_MAXCPU; i++) {
-		vlapic = vm_lapic(vm, i);
-
-		SNAPSHOT_BUF_OR_LEAVE(vlapic->apic_page, PAGE_SIZE,
-				      meta, ret, done);
 	}
 
 done:
