@@ -1707,7 +1707,6 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 	struct vlapic *vlapic;
 	struct LAPIC *lapic;
 	uint32_t ccr;
-	int vcpuid;
 
 	KASSERT(vm != NULL, ("%s: arg was NULL", __func__));
 
@@ -1716,21 +1715,11 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 	for (i = 0; i < VM_MAXCPU; i++) {
 		vlapic = vm_lapic(vm, i);
 
-		vcpuid = vlapic->vcpuid;
-		SNAPSHOT_VAR_OR_LEAVE(vcpuid, meta, ret, done);
-		/* at restore time, vcpuid is overwritten with the old value */
-		if (vcpuid != vlapic->vcpuid) {
-			printf("%s: vcpuid mismatch %d != %d.\n", __func__,
-					vlapic->vcpuid, vcpuid);
-			ret = (EINVAL);
-			goto done;
-		}
 		/* snapshot the page first; timer period depends on icr_timer */
 		lapic = vlapic->apic_page;
 		SNAPSHOT_BUF_OR_LEAVE(lapic, PAGE_SIZE, meta, ret, done);
 
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->esr_pending, meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vlapic->esr_firing, meta, ret, done);
 
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_freq_bt.sec,
 				      meta, ret, done);
@@ -1749,7 +1738,6 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->isrvec_stk_top, meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->boot_state, meta, ret, done);
 
-		SNAPSHOT_VAR_OR_LEAVE(vlapic->svr_last, meta, ret, done);
 		SNAPSHOT_BUF_OR_LEAVE(vlapic->lvt_last,
 				      sizeof(vlapic->lvt_last),
 				      meta, ret, done);
