@@ -1726,11 +1726,14 @@ vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta)
 		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_freq_bt.frac,
 				      meta, ret, done);
 
-		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_period_bt.sec,
-				      meta, ret, done);
-		SNAPSHOT_VAR_OR_LEAVE(vlapic->timer_period_bt.frac,
-				      meta, ret, done);
-
+		/*
+		 * Timer period is equal to 'icr_timer' ticks at a frequency of
+		 * 'timer_freq_bt'.
+		 */
+		if (meta->op == VM_SNAPSHOT_RESTORE) {
+			vlapic->timer_period_bt = vlapic->timer_freq_bt;
+			bintime_mul(&vlapic->timer_period_bt, lapic->icr_timer);
+		}
 
 		SNAPSHOT_BUF_OR_LEAVE(vlapic->isrvec_stk,
 				      sizeof(vlapic->isrvec_stk),
