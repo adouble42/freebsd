@@ -2802,12 +2802,6 @@ vm_snapshot_vlapic(struct vm *vm, struct vm_snapshot_meta *meta)
 }
 
 static int
-vm_snapshot_lapic(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vlapic_lapic_snapshot(vm, meta);
-}
-
-static int
 vm_snapshot_vioapic(struct vm *vm, struct vm_snapshot_meta *meta)
 {
 	return vioapic_snapshot(vm_ioapic(vm), meta);
@@ -2886,9 +2880,6 @@ vm_snapshot_req(struct vm *vm, struct vm_snapshot_meta *meta)
 		break;
 	case STRUCT_VLAPIC:
 		ret = vm_snapshot_vlapic(vm, meta);
-		break;
-	case STRUCT_LAPIC:
-		ret = vm_snapshot_lapic(vm, meta);
 		break;
 	case STRUCT_VHPET:
 		ret = vm_snapshot_vhpet(vm, meta);
