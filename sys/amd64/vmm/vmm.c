@@ -2903,7 +2903,8 @@ vm_snapshot_req(struct vm *vm, struct vm_snapshot_meta *meta)
 		ret = vm_snapshot_vrtc(vm, meta);
 		break;
 	default:
-		printf("%s: failed to find the requested type\n", __func__);
+		printf("%s: failed to find the requested type %#x\n",
+		       __func__, meta->dev_req);
 		ret = (EINVAL);
 	}
 	return (ret);
