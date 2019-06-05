@@ -946,8 +946,8 @@ blockif_snapshot_req(struct blockif_req *br, struct vm_snapshot_meta *meta)
 
 		SNAPSHOT_VAR_OR_LEAVE(iov->iov_len, meta, ret, done);
 		/* we assume the iov is a guest-mapped address */
-		SNAPSHOT_GADDR_OR_LEAVE(iov->iov_base, iov->iov_len, false,
-					meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(iov->iov_base, iov->iov_len,
+			false, meta, ret, done);
 	}
 
 done:
