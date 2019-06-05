@@ -67,8 +67,8 @@ vm_get_snapshot_size(struct vm_snapshot_meta *meta)
 }
 
 int
-vm_snapshot_gaddr(void **addr_var, size_t gaddr_len, int restore_null,
-		  struct vm_snapshot_meta *meta)
+vm_snapshot_guest2host_addr(void **addrp, size_t len, int restore_null,
+			    struct vm_snapshot_meta *meta)
 {
 	/* The kernel devices/structures should not map guest memory */
 	return (0);

@@ -2879,9 +2879,9 @@ pci_xhci_snapshot_ep(struct pci_xhci_softc *sc, struct pci_xhci_dev_emu *dev,
 	for (k = 0; k < USB_MAX_XFER_BLOCKS; k++) {
 		xfer_block = &xfer->data[k];
 
-		SNAPSHOT_GADDR_OR_LEAVE(xfer_block->buf,
-					XHCI_GADDR_SIZE(xfer_block->buf),
-					true, meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(xfer_block->buf,
+			XHCI_GADDR_SIZE(xfer_block->buf), true, meta, ret,
+			done);
 		SNAPSHOT_VAR_OR_LEAVE(xfer_block->blen, meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(xfer_block->bdone, meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(xfer_block->processed, meta, ret, done);
@@ -2946,14 +2946,12 @@ pci_xhci_snapshot(struct vm_snapshot_meta *meta)
 	SNAPSHOT_VAR_OR_LEAVE(sc->opregs.config, meta, ret, done);
 
 	/* opregs.cr_p */
-	SNAPSHOT_GADDR_OR_LEAVE(sc->opregs.cr_p,
-				XHCI_GADDR_SIZE(sc->opregs.cr_p),
-				false, meta, ret, done);
+	SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(sc->opregs.cr_p,
+		XHCI_GADDR_SIZE(sc->opregs.cr_p), false, meta, ret, done);
 
 	/* opregs.dcbaa_p */
-	SNAPSHOT_GADDR_OR_LEAVE(sc->opregs.dcbaa_p,
-				XHCI_GADDR_SIZE(sc->opregs.dcbaa_p),
-				false, meta, ret, done);
+	SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(sc->opregs.dcbaa_p,
+		XHCI_GADDR_SIZE(sc->opregs.dcbaa_p), false, meta, ret, done);
 
 	/* rtsregs */
 	SNAPSHOT_VAR_OR_LEAVE(sc->rtsregs.mfindex, meta, ret, done);
@@ -2967,14 +2965,12 @@ pci_xhci_snapshot(struct vm_snapshot_meta *meta)
 	SNAPSHOT_VAR_OR_LEAVE(sc->rtsregs.intrreg.erdp, meta, ret, done);
 
 	/* rtsregs.erstba_p */
-	SNAPSHOT_GADDR_OR_LEAVE(sc->rtsregs.erstba_p,
-				XHCI_GADDR_SIZE(sc->rtsregs.erstba_p),
-				false, meta, ret, done);
+	SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(sc->rtsregs.erstba_p,
+		XHCI_GADDR_SIZE(sc->rtsregs.erstba_p), false, meta, ret, done);
 
 	/* rtsregs.erst_p */
-	SNAPSHOT_GADDR_OR_LEAVE(sc->rtsregs.erst_p,
-				XHCI_GADDR_SIZE(sc->rtsregs.erst_p),
-				false, meta, ret, done);
+	SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(sc->rtsregs.erst_p,
+		XHCI_GADDR_SIZE(sc->rtsregs.erst_p), false, meta, ret, done);
 
 	SNAPSHOT_VAR_OR_LEAVE(sc->rtsregs.er_deq_seg, meta, ret, done);
 	SNAPSHOT_VAR_OR_LEAVE(sc->rtsregs.er_enq_idx, meta, ret, done);
@@ -3059,9 +3055,8 @@ pci_xhci_snapshot(struct vm_snapshot_meta *meta)
 		if (dev == NULL)
 			continue;
 
-		SNAPSHOT_GADDR_OR_LEAVE(dev->dev_ctx,
-					XHCI_GADDR_SIZE(dev->dev_ctx),
-					false, meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(dev->dev_ctx,
+			XHCI_GADDR_SIZE(dev->dev_ctx), false, meta, ret, done);
 
 		for (j = 1; j < XHCI_MAX_ENDPOINTS; j++) {
 			ret = pci_xhci_snapshot_ep(sc, dev, j, meta);

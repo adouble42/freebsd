@@ -1383,33 +1383,33 @@ vm_get_snapshot_size(struct vm_snapshot_meta *meta)
 }
 
 int
-vm_snapshot_gaddr(void **addr_var, size_t gaddr_len, int restore_null,
-		  struct vm_snapshot_meta *meta)
+vm_snapshot_guest2host_addr(void **addrp, size_t len, int restore_null,
+			    struct vm_snapshot_meta *meta)
 {
 	int ret;
-	vm_paddr_t paddr;
+	vm_paddr_t gaddr;
 
 	if (meta->op == VM_SNAPSHOT_SAVE) {
-		paddr = paddr_host2guest(meta->ctx, *addr_var);
-		if (paddr == (vm_paddr_t) -1) {
+		gaddr = paddr_host2guest(meta->ctx, *addrp);
+		if (gaddr == (vm_paddr_t) -1) {
 			if ((restore_null == false) ||
-			    ((restore_null == true) && (*addr_var != NULL))) {
+			    ((restore_null == true) && (*addrp != NULL))) {
 				ret = EFAULT;
 				goto done;
 			}
 		}
 
-		SNAPSHOT_VAR_OR_LEAVE(paddr, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(gaddr, meta, ret, done);
 	} else if (meta->op == VM_SNAPSHOT_RESTORE) {
-		SNAPSHOT_VAR_OR_LEAVE(paddr, meta, ret, done);
-		if (paddr == (vm_paddr_t) -1) {
+		SNAPSHOT_VAR_OR_LEAVE(gaddr, meta, ret, done);
+		if (gaddr == (vm_paddr_t) -1) {
 			if (restore_null == false) {
 				ret = EFAULT;
 				goto done;
 			}
 		}
 
-		*addr_var = paddr_guest2host(meta->ctx, paddr, gaddr_len);
+		*addrp = paddr_guest2host(meta->ctx, gaddr, len);
 	} else {
 		ret = EINVAL;
 	}

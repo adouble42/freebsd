@@ -867,19 +867,19 @@ vi_pci_snapshot_queues(struct virtio_softc *vs, struct vm_snapshot_meta *meta)
 		SNAPSHOT_VAR_OR_LEAVE(vq->vq_pfn, meta, ret, done);
 
 		addr_size = vq->vq_qsize * sizeof(struct virtio_desc);
-		SNAPSHOT_GADDR_OR_LEAVE(vq->vq_desc, addr_size,
-				false, meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(vq->vq_desc, addr_size,
+			false, meta, ret, done);
 
 		addr_size = (2 + vq->vq_qsize + 1) * sizeof(uint16_t);
-		SNAPSHOT_GADDR_OR_LEAVE(vq->vq_avail, addr_size,
-				false, meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(vq->vq_avail, addr_size,
+			false, meta, ret, done);
 
 		addr_size  = (2 + 2 * vq->vq_qsize + 1) * sizeof(uint16_t);
-		SNAPSHOT_GADDR_OR_LEAVE(vq->vq_used, addr_size,
-				false, meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(vq->vq_used, addr_size,
+			false, meta, ret, done);
 
 		SNAPSHOT_BUF_OR_LEAVE(vq->vq_desc, vring_size(vq->vq_qsize),
-				      meta, ret, done);
+			meta, ret, done);
 	}
 
 done:

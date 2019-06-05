@@ -2609,11 +2609,10 @@ pci_ahci_snapshot(struct vm_snapshot_meta *meta)
 			goto done;
 		}
 
-		SNAPSHOT_GADDR_OR_LEAVE(port->cmd_lst,
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(port->cmd_lst,
 			AHCI_CL_SIZE * AHCI_MAX_SLOTS, false, meta, ret, done);
-
-		SNAPSHOT_GADDR_OR_LEAVE(port->rfis,
-					256, false, meta, ret, done);
+		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(port->rfis, 256, false, meta,
+			ret, done);
 
 		SNAPSHOT_VAR_OR_LEAVE(port->ident, meta, ret, done);
 		SNAPSHOT_VAR_OR_LEAVE(port->atapi, meta, ret, done);
@@ -2651,7 +2650,7 @@ pci_ahci_snapshot(struct vm_snapshot_meta *meta)
 
 			/* blockif_req snapshot done only for busy requests */
 			hdr = (struct ahci_cmd_hdr *)(port->cmd_lst + j * AHCI_CL_SIZE);
-			SNAPSHOT_GADDR_OR_LEAVE(ioreq->cfis,
+			SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(ioreq->cfis,
 				0x80 + hdr->prdtl * sizeof(struct ahci_prdt_entry),
 				false, meta, ret, done);
 
