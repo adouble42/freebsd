@@ -2649,7 +2649,8 @@ pci_ahci_snapshot(struct vm_snapshot_meta *meta)
 			ioreq = &port->ioreq[j];
 
 			/* blockif_req snapshot done only for busy requests */
-			hdr = (struct ahci_cmd_hdr *)(port->cmd_lst + j * AHCI_CL_SIZE);
+			hdr = (struct ahci_cmd_hdr *)(port->cmd_lst +
+				ioreq->slot * AHCI_CL_SIZE);
 			SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(ioreq->cfis,
 				0x80 + hdr->prdtl * sizeof(struct ahci_prdt_entry),
 				false, meta, ret, done);
