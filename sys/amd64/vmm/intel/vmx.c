@@ -3904,7 +3904,6 @@ vmx_snapshot_vmcx(void *arg, struct vm_snapshot_meta *meta, int vcpu)
 	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_IA32_SYSENTER_EIP, meta);
 	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_INTERRUPTIBILITY, meta);
 	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_ACTIVITY, meta);
-	err += vmcs_snapshot_any(vmcs, run, VMCS_GUEST_IA32_EFER, meta);
 	err += vmcs_snapshot_any(vmcs, run, VMCS_ENTRY_CTLS, meta);
 	err += vmcs_snapshot_any(vmcs, run, VMCS_EXIT_CTLS, meta);
 
