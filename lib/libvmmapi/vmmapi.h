@@ -271,7 +271,7 @@ enum checkpoint_opcodes {
 	START_MIGRATE = 2,
 };
 
-struct __attribute__((packed)) checkpoint_op {
+struct checkpoint_op {
 	unsigned int op;
 	char snapshot_filename[MAX_SNAPSHOT_VMNAME];
 	char host[MAX_HOSTNAME_LEN];
