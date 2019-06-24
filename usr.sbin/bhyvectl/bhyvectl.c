@@ -299,8 +299,6 @@ static int get_cpu_topology;
 static int vm_checkpoint_opt;
 static int vm_suspend_opt;
 static int vm_migrate;
-static int vcpu_lock_all_opt;
-static int vcpu_unlock_all_opt;
 
 /*
  * VMCB specific.
@@ -1479,8 +1477,6 @@ setup_options(bool cpu_intel)
 		{ "checkpoint", 	REQ_ARG, 0,	SET_CHECKPOINT_FILE},
 		{ "suspend", 		REQ_ARG, 0,	SET_SUSPEND_FILE},
 		{ "migrate", 		REQ_ARG, 0,	MIGRATE_VM},
-		{ "vcpu_lock_all", 	NO_ARG,&vcpu_lock_all_opt,		1 },
-		{ "vcpu_unlock_all", 	NO_ARG,&vcpu_unlock_all_opt,	1 },
 	};
 
 	const struct option intel_opts[] = {
@@ -2504,12 +2500,6 @@ main(int argc, char *argv[])
 
 	if (!error && vm_migrate)
 		error = send_start_migrate(ctx, migrate_host);
-
-	if (!error && vcpu_lock_all_opt)
-		error = vm_vcpu_lock_all(ctx);
-
-	if (!error && vcpu_unlock_all_opt)
-		error = vm_vcpu_unlock_all(ctx);
 
 	free (opts);
 	exit(error);

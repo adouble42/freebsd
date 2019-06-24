@@ -252,8 +252,6 @@ enum {
 	IOCNUM_GET_CAPABILITY = 3,
 	IOCNUM_SUSPEND = 4,
 	IOCNUM_REINIT = 5,
-	IOCNUM_VCPU_LOCK_ALL = 6,
-	IOCNUM_VCPU_UNLOCK_ALL = 7,
 
 	/* memory apis */
 	IOCNUM_MAP_MEMORY = 10,			/* deprecated */
@@ -338,10 +336,6 @@ enum {
 	_IOW('v', IOCNUM_SUSPEND, struct vm_suspend)
 #define	VM_REINIT	\
 	_IO('v', IOCNUM_REINIT)
-#define	VM_VCPU_LOCK_ALL\
-	_IO('v', IOCNUM_VCPU_LOCK_ALL)
-#define	VM_VCPU_UNLOCK_ALL\
-	_IO('v', IOCNUM_VCPU_UNLOCK_ALL)
 #define	VM_ALLOC_MEMSEG	\
 	_IOW('v', IOCNUM_ALLOC_MEMSEG, struct vm_memseg)
 #define	VM_GET_MEMSEG	\

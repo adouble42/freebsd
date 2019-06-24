@@ -462,13 +462,6 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	case VM_REINIT:
 		error = vm_reinit(sc->vm);
 		break;
-	case VM_VCPU_LOCK_ALL:
-		error = vcpu_lock_all(sc);
-		break;
-	case VM_VCPU_UNLOCK_ALL:
-		vcpu_unlock_all(sc);
-		error = 0;
-		break;
 	case VM_STAT_DESC: {
 		statdesc = (struct vm_stat_desc *)data;
 		error = vmm_stat_desc_copy(statdesc->index,

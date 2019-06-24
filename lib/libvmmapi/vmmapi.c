@@ -47,6 +47,7 @@ __FBSDID("$FreeBSD$");
 #include <assert.h>
 #include <string.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <unistd.h>
 
 #include <libutil.h>
@@ -80,6 +81,14 @@ __FBSDID("$FreeBSD$");
 #define	PROT_RW		(PROT_READ | PROT_WRITE)
 #define	PROT_ALL	(PROT_READ | PROT_WRITE | PROT_EXEC)
 
+struct vcpu_lock {
+	pthread_mutex_t	vl_mtx;
+	int		vl_running_cnt;
+	pthread_cond_t	vl_run_complete_cond;
+	int		vl_paused;
+	pthread_cond_t	vl_paused_cond;
+};
+
 struct vmctx {
 	int	fd;
 	uint32_t lowmem_limit;
@@ -88,6 +97,8 @@ struct vmctx {
 	size_t	highmem;
 	char	*baseaddr;
 	char	*name;
+
+	struct vcpu_lock lock;
 };
 
 #define	CREATE(x)  sysctlbyname("hw.vmm.create", NULL, NULL, (x), strlen((x)))
@@ -122,6 +133,7 @@ struct vmctx *
 vm_open(const char *name)
 {
 	struct vmctx *vm;
+	struct vcpu_lock *lock;
 
 	vm = malloc(sizeof(struct vmctx) + strlen(name) + 1);
 	assert(vm != NULL);
@@ -134,6 +146,14 @@ vm_open(const char *name)
 
 	if ((vm->fd = vm_device_open(vm->name)) < 0)
 		goto err;
+
+	lock = &vm->lock;
+
+	pthread_mutex_init(&lock->vl_mtx, NULL);
+	lock->vl_running_cnt = 0;
+	pthread_cond_init(&lock->vl_run_complete_cond, NULL);
+	lock->vl_paused = 0;
+	pthread_cond_init(&lock->vl_paused_cond, NULL);
 
 	return (vm);
 err:
@@ -675,12 +695,28 @@ vm_run(struct vmctx *ctx, int vcpu, struct vm_exit *vmexit)
 {
 	int error;
 	struct vm_run vmrun;
+	struct vcpu_lock *lock;
+
+	lock = &ctx->lock;
+
+	pthread_mutex_lock(&lock->vl_mtx);
+	while (lock->vl_paused)
+		pthread_cond_wait(&lock->vl_paused_cond, &lock->vl_mtx);
+	lock->vl_running_cnt++;
+	pthread_mutex_unlock(&lock->vl_mtx);
 
 	bzero(&vmrun, sizeof(vmrun));
 	vmrun.cpuid = vcpu;
 
 	error = ioctl(ctx->fd, VM_RUN, &vmrun);
 	bcopy(&vmrun.vm_exit, vmexit, sizeof(struct vm_exit));
+
+	pthread_mutex_lock(&lock->vl_mtx);
+	lock->vl_running_cnt--;
+	if (lock->vl_running_cnt == 0)
+		pthread_cond_broadcast(&lock->vl_run_complete_cond);
+	pthread_mutex_unlock(&lock->vl_mtx);
+
 	return (error);
 }
 
@@ -1554,14 +1590,31 @@ vm_restart_instruction(void *arg, int vcpu)
 	return (ioctl(ctx->fd, VM_RESTART_INSTRUCTION, &vcpu));
 }
 
-int vm_vcpu_lock_all(struct vmctx *ctx)
+void
+vm_vcpu_pause(struct vmctx *ctx)
 {
-	return (ioctl(ctx->fd, VM_VCPU_LOCK_ALL));
+	struct vcpu_lock *lock;
+
+	lock = &ctx->lock;
+
+	pthread_mutex_lock(&lock->vl_mtx);
+	lock->vl_paused = 1;
+	while (lock->vl_running_cnt != 0)
+		pthread_cond_wait(&lock->vl_run_complete_cond, &lock->vl_mtx);
+	pthread_mutex_unlock(&lock->vl_mtx);
 }
 
-int vm_vcpu_unlock_all(struct vmctx *ctx)
+void
+vm_vcpu_resume(struct vmctx *ctx)
 {
-	return (ioctl(ctx->fd, VM_VCPU_UNLOCK_ALL));
+	struct vcpu_lock *lock;
+
+	lock = &ctx->lock;
+
+	pthread_mutex_lock(&lock->vl_mtx);
+	lock->vl_paused = 0;
+	pthread_cond_broadcast(&lock->vl_paused_cond);
+	pthread_mutex_unlock(&lock->vl_mtx);
 }
 
 int
