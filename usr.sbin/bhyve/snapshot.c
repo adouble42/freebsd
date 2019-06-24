@@ -1092,18 +1092,6 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 	xo_finish_h(xop);
 
 	if (stop_vm) {
-		ret = vm_suspend(ctx, VM_SUSPEND_POWEROFF);
-		if (ret != 0) {
-			fprintf(stderr, "Failed to suspend vm\n");
-		}
-		vm_vcpu_resume(ctx);
-
-		ret = vm_resume_user_devs(ctx);
-		if (ret != 0)
-			fprintf(stderr, "Could not resume devices\r\n");
-
-		/* Wait for CPUs to suspend. TODO: write this properly. */
-		sleep(5);
 		vm_destroy(ctx);
 		exit(0);
 	}
