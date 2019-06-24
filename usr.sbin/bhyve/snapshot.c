@@ -1057,7 +1057,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 		goto done;
 	}
 
-	vm_vcpu_lock_all(ctx);
+	vm_vcpu_pause(ctx);
 
 	ret = vm_snapshot_kern_structs(ctx, kdata_fd, xop);
 	if (ret != 0) {
@@ -1096,7 +1096,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 		if (ret != 0) {
 			fprintf(stderr, "Failed to suspend vm\n");
 		}
-		vm_vcpu_unlock_all(ctx);
+		vm_vcpu_resume(ctx);
 
 		ret = vm_resume_user_devs(ctx);
 		if (ret != 0)
@@ -1109,7 +1109,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 	}
 
 done_unlock:
-	vm_vcpu_unlock_all(ctx);
+	vm_vcpu_resume(ctx);
 done:
 	ret = vm_resume_user_devs(ctx);
 	if (ret != 0)
