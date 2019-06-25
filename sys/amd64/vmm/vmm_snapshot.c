@@ -6,16 +6,16 @@
 void
 vm_snapshot_buf_err(const char *bufname, const enum vm_snapshot_op op)
 {
-	const char *__op;
+	const char *opstr;
 
 	if (op == VM_SNAPSHOT_SAVE)
-		__op = "save";
+		opstr = "save";
 	else if (op == VM_SNAPSHOT_RESTORE)
-		__op = "restore";
+		opstr = "restore";
 	else
-		__op = "unknown";
+		opstr = "unknown";
 
-	printf("%s: snapshot-%s failed for %s\r\n", __func__, __op, bufname);
+	printf("%s: snapshot-%s failed for %s\r\n", __func__, opstr, bufname);
 }
 
 int
