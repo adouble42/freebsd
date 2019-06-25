@@ -1717,8 +1717,6 @@ restart:
 
 	vmm_stat_incr(vm, vcpuid, VCPU_TOTAL_RUNTIME, rdtsc() - tscval);
 
-	if (curthread->td_critnest != 1)
-		return (EINVAL);
 	critical_exit();
 
 	if (error == 0) {
