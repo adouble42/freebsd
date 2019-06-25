@@ -1611,22 +1611,14 @@ vm_vcpu_resume(struct vmctx *ctx)
 int
 vm_snapshot_req(struct vm_snapshot_meta *meta)
 {
-	struct vm_snapshot_req req_params;
 	int error;
 
-	bzero(&req_params, sizeof(struct vm_snapshot_req));
-	/* copy metadata header for syscall */
-	memcpy(&req_params.meta, meta, sizeof(req_params.meta));
-
-	error = ioctl(meta->ctx->fd, VM_SNAPSHOT_REQ, &req_params);
+	error = ioctl(meta->ctx->fd, VM_SNAPSHOT_REQ, meta);
 	if (error != 0) {
 		fprintf(stderr, "%s: snapshot failed for %s\r\n",
 			__func__, meta->dev_name);
 		goto done;
 	}
-
-	/* copy results back to metadata header */
-	memcpy(meta, &req_params.meta, sizeof(req_params.meta));
 
 done:
 	return (error);

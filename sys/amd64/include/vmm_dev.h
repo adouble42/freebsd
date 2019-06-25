@@ -240,10 +240,6 @@ struct vm_cpu_topology {
 	uint16_t	maxcpus;
 };
 
-struct vm_snapshot_req {
-	struct vm_snapshot_meta meta;
-};
-
 enum {
 	/* general routines */
 	IOCNUM_ABIVERS = 0,
@@ -439,7 +435,7 @@ enum {
 #define	VM_RESTART_INSTRUCTION \
 	_IOW('v', IOCNUM_RESTART_INSTRUCTION, int)
 #define VM_SNAPSHOT_REQ \
-	_IOWR('v', IOCNUM_SNAPSHOT_REQ, struct vm_snapshot_req)
+	_IOWR('v', IOCNUM_SNAPSHOT_REQ, struct vm_snapshot_meta)
 #define VM_RESTORE_TIME \
 	_IOWR('v', IOCNUM_RESTORE_TIME, int)
 #endif
