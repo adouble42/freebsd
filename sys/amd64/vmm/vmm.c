@@ -2794,48 +2794,6 @@ done:
 }
 
 static int
-vm_snapshot_vlapic(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vlapic_snapshot(vm, meta);
-}
-
-static int
-vm_snapshot_vioapic(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vioapic_snapshot(vm_ioapic(vm), meta);
-}
-
-static int
-vm_snapshot_vhpet(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vhpet_snapshot(vm_hpet(vm), meta);
-}
-
-static int
-vm_snapshot_vatpic(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vatpic_snapshot(vm_atpic(vm), meta);
-}
-
-static int
-vm_snapshot_vatpit(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vatpit_snapshot(vm_atpit(vm), meta);
-}
-
-static int
-vm_snapshot_vpmtmr(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vpmtmr_snapshot(vm_pmtmr(vm), meta);
-}
-
-static int
-vm_snapshot_vrtc(struct vm *vm, struct vm_snapshot_meta *meta)
-{
-	return vrtc_snapshot(vm_rtc(vm), meta);
-}
-
-static int
 vm_snapshot_vmcx(struct vm *vm, struct vm_snapshot_meta *meta)
 {
 	int i, error;
@@ -2874,25 +2832,25 @@ vm_snapshot_req(struct vm *vm, struct vm_snapshot_meta *meta)
 		ret = vm_snapshot_vm(vm, meta);
 		break;
 	case STRUCT_VIOAPIC:
-		ret = vm_snapshot_vioapic(vm, meta);
+		ret = vioapic_snapshot(vm_ioapic(vm), meta);
 		break;
 	case STRUCT_VLAPIC:
-		ret = vm_snapshot_vlapic(vm, meta);
+		ret = vlapic_snapshot(vm, meta);
 		break;
 	case STRUCT_VHPET:
-		ret = vm_snapshot_vhpet(vm, meta);
+		ret = vhpet_snapshot(vm_hpet(vm), meta);
 		break;
 	case STRUCT_VATPIC:
-		ret = vm_snapshot_vatpic(vm, meta);
+		ret = vatpic_snapshot(vm_atpic(vm), meta);
 		break;
 	case STRUCT_VATPIT:
-		ret = vm_snapshot_vatpit(vm, meta);
+		ret = vatpit_snapshot(vm_atpit(vm), meta);
 		break;
 	case STRUCT_VPMTMR:
-		ret = vm_snapshot_vpmtmr(vm, meta);
+		ret = vpmtmr_snapshot(vm_pmtmr(vm), meta);
 		break;
 	case STRUCT_VRTC:
-		ret = vm_snapshot_vrtc(vm, meta);
+		ret = vrtc_snapshot(vm_rtc(vm), meta);
 		break;
 	default:
 		printf("%s: failed to find the requested type %#x\n",
