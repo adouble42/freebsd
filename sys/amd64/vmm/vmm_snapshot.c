@@ -24,8 +24,9 @@ vm_snapshot_buf(volatile void *data, size_t data_size,
 {
 	struct vm_snapshot_buffer *buffer;
 	int op;
-	void *_data = *(void **)(void *)&data;
+	void *nv_data;
 
+	nv_data = __DEVOLATILE(void *, data);
 	buffer = &meta->buffer;
 	op = meta->op;
 
@@ -35,9 +36,9 @@ vm_snapshot_buf(volatile void *data, size_t data_size,
 	}
 
 	if (op == VM_SNAPSHOT_SAVE)
-		copyout(_data, buffer->buf, data_size);
+		copyout(nv_data, buffer->buf, data_size);
 	else if (op == VM_SNAPSHOT_RESTORE)
-		copyin(buffer->buf, _data, data_size);
+		copyin(buffer->buf, nv_data, data_size);
 	else
 		return (EINVAL);
 
