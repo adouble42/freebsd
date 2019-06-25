@@ -785,6 +785,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		vm_get_topology(sc->vm, &topology->sockets, &topology->cores,
 		    &topology->threads, &topology->maxcpus);
 		error = 0;
+		break;
 	case VM_SNAPSHOT_REQ:
 		snapshot_meta = (struct vm_snapshot_meta *)data;
 		error = vm_snapshot_req(sc->vm, snapshot_meta);
