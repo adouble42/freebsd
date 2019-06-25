@@ -370,7 +370,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	struct vm_cpu_topology *topology;
 	uint64_t *regvals;
 	int *regnums;
-	struct vm_snapshot_req *snapshot_req;
+	struct vm_snapshot_meta *snapshot_meta;
 
 	error = vmm_priv_check(curthread->td_ucred);
 	if (error)
@@ -774,8 +774,8 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		    &topology->threads, &topology->maxcpus);
 		error = 0;
 	case VM_SNAPSHOT_REQ:
-		snapshot_req = (struct vm_snapshot_req *)data;
-		error = vm_snapshot_req(sc->vm, &snapshot_req->meta);
+		snapshot_meta = (struct vm_snapshot_meta *)data;
+		error = vm_snapshot_req(sc->vm, snapshot_meta);
 		break;
 	case VM_RESTORE_TIME:
 		error = vm_restore_time(sc->vm);
