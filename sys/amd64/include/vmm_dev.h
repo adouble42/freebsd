@@ -31,11 +31,6 @@
 #ifndef	_VMM_DEV_H_
 #define	_VMM_DEV_H_
 
-#include <machine/vmm_snapshot.h>
-#include <sys/_cpuset.h>
-#include <sys/param.h>
-#include <vm/vm.h>
-
 struct vm_snapshot_meta;
 
 #ifdef _KERNEL
