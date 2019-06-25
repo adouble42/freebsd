@@ -9,7 +9,7 @@ struct vmctx;
 
 #define SNAPSHOT_BUFFER_SIZE (20 * MB)
 
-struct __attribute__((packed)) restore_state {
+struct restore_state {
 	int kdata_fd;
 	int vmmem_fd;
 
