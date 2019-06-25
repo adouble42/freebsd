@@ -1035,7 +1035,6 @@ sysctl_vmm_create(SYSCTL_HANDLER_ARGS)
 
 	error = make_dev_p(MAKEDEV_CHECKNAME, &cdev, &vmmdevsw, NULL,
 			   UID_ROOT, GID_WHEEL, 0600, "vmm/%s", buf);
-	/* TODO: shouldn't be done inside lock? */
 	if (error != 0) {
 		vmmdev_destroy(sc);
 		goto out;
