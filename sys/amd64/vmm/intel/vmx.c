@@ -2875,12 +2875,8 @@ vmx_run(void *arg, int vcpu, register_t rip, pmap_t pmap,
 	 */
 	vmcs_write(VMCS_HOST_CR3, rcr3());
 
-	/*
-	 * XXX If we restore a VM we use the rip saved in the vmcs
-	 */
 	vmcs_write(VMCS_GUEST_RIP, rip);
 	vmx_set_pcpu_defaults(vmx, vcpu, pmap);
-
 	do {
 		KASSERT(vmcs_guest_rip() == rip, ("%s: vmcs guest rip mismatch "
 		    "%#lx/%#lx", __func__, vmcs_guest_rip(), rip));
