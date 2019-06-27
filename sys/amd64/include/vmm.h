@@ -155,13 +155,6 @@ struct vm_guest_paging;
 struct pmap;
 enum snapshot_req;
 
-struct mem_seg {
-	size_t	len;
-	bool	sysmem;
-	struct vm_object *object;
-};
-#define	VM_MAX_MEMSEGS	3
-
 struct vm_eventinfo {
 	void	*rptr;		/* rendezvous cookie */
 	int	*sptr;		/* suspend cookie */

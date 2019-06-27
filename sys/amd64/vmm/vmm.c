@@ -126,6 +126,13 @@ struct vcpu {
 #define	vcpu_unlock(v)		mtx_unlock_spin(&((v)->mtx))
 #define	vcpu_assert_locked(v)	mtx_assert(&((v)->mtx), MA_OWNED)
 
+struct mem_seg {
+	size_t	len;
+	bool	sysmem;
+	struct vm_object *object;
+};
+#define	VM_MAX_MEMSEGS	3
+
 struct mem_map {
 	vm_paddr_t	gpa;
 	size_t		len;
