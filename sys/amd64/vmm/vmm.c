@@ -806,11 +806,6 @@ vm_mmap_getnext(struct vm *vm, vm_paddr_t *gpa, int *segid,
 	}
 }
 
-struct mem_seg * vm_get_memsegs(struct vm *vm)
-{
-	return (vm->mem_segs);
-}
-
 static void
 vm_free_memmap(struct vm *vm, int ident)
 {
