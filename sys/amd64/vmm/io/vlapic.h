@@ -110,7 +110,6 @@ void vlapic_dcr_write_handler(struct vlapic *vlapic);
 void vlapic_lvt_write_handler(struct vlapic *vlapic, uint32_t offset);
 void vlapic_self_ipi_handler(struct vlapic *vlapic, uint64_t val);
 
-struct LAPIC *vlapic_get_LAPIC(struct vlapic *vlapic);
 int vlapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta);
 int vlapic_lapic_snapshot(struct vm *vm, struct vm_snapshot_meta *meta);
 

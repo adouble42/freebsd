@@ -1656,12 +1656,6 @@ vlapic_set_tmr_level(struct vlapic *vlapic, uint32_t dest, bool phys,
 	vlapic_set_tmr(vlapic, vector, true);
 }
 
-struct LAPIC*
-vlapic_get_LAPIC(struct vlapic *vlapic)
-{
-	return vlapic->apic_page;
-}
-
 static void
 vlapic_reset_callout(struct vlapic *vlapic, uint32_t ccr)
 {
