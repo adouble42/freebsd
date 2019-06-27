@@ -224,7 +224,6 @@ static struct vmm_ops *ops;
 SDT_PROVIDER_DEFINE(vmm);
 
 static MALLOC_DEFINE(M_VM, "vm", "vm");
-static MALLOC_DEFINE(M_RESTORE, "restore", "restore");
 
 /* statistics */
 static VMM_STAT(VCPU_TOTAL_RUNTIME, "vcpu total runtime");
