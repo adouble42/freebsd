@@ -2831,10 +2831,6 @@ vmx_dr_leave_guest(struct vmxctx *vmxctx)
 	write_rflags(read_rflags() | vmxctx->host_tf);
 }
 
-/*
- * XXX
- * Added old_vmcs and old_regs to vmx_run to test guest vcpu saving
- */
 static int
 vmx_run(void *arg, int vcpu, register_t rip, pmap_t pmap,
     struct vm_eventinfo *evinfo)
