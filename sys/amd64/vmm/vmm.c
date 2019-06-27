@@ -188,9 +188,6 @@ static struct vmm_ops *ops;
 #define	VMM_RESUME()	(ops != NULL ? (*ops->resume)() : 0)
 
 #define	VMINIT(vm, pmap) (ops != NULL ? (*ops->vminit)(vm, pmap): NULL)
-/*
- * XXX: Updated VMRUN to test vcpu restoring
- */
 #define	VMRUN(vmi, vcpu, rip, pmap, evinfo) \
 	(ops != NULL ? (*ops->vmrun)(vmi, vcpu, rip, pmap, evinfo) : ENXIO)
 #define	VMCLEANUP(vmi)	(ops != NULL ? (*ops->vmcleanup)(vmi) : NULL)
