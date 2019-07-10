@@ -3798,7 +3798,6 @@ vmx_snapshot_vmi(void *arg, struct vm_snapshot_meta *meta)
 {
 	struct vmx *vmx;
 	struct vmxctx *vmxctx;
-	struct pmap *new_pmap;
 	int i;
 	int ret;
 
@@ -3808,19 +3807,34 @@ vmx_snapshot_vmi(void *arg, struct vm_snapshot_meta *meta)
 
 	for (i = 0; i < VM_MAXCPU; i++) {
 		SNAPSHOT_BUF_OR_LEAVE(vmx->guest_msrs[i],
-				      sizeof(vmx->guest_msrs[i]), meta, ret,
-				      done);
+		      sizeof(vmx->guest_msrs[i]), meta, ret, done);
 
 		vmxctx = &vmx->ctx[i];
-
-		new_pmap = vmxctx->pmap;
-		SNAPSHOT_BUF_OR_LEAVE(vmxctx, sizeof(*vmxctx), meta, ret, done);
-		vmxctx->pmap = new_pmap;
-		vmx->eptgen[i] = new_pmap->pm_eptgen - 1;
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rdi, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rsi, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rdx, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rcx, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r8, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r9, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rax, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rbx, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_rbp, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r10, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r11, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r12, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r13, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r14, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_r15, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_cr2, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr0, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr1, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr2, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr3, meta, ret, done);
+		SNAPSHOT_VAR_OR_LEAVE(vmxctx->guest_dr6, meta, ret, done);
 	}
 
 done:
-	return (0);
+	return (ret);
 }
 
 static int
