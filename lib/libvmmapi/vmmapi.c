@@ -693,6 +693,7 @@ vm_run(struct vmctx *ctx, int vcpu, struct vm_exit *vmexit)
 	pthread_mutex_lock(&lock->vl_mtx);
 	while (lock->vl_paused)
 		pthread_cond_wait(&lock->vl_paused_cond, &lock->vl_mtx);
+
 	lock->vl_running_cnt++;
 	pthread_mutex_unlock(&lock->vl_mtx);
 
