@@ -738,7 +738,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		break;
 	case VM_SUSPEND_CPU:
 		vac = (struct vm_activate_cpu *)data;
-		error = vm_suspend_cpu(sc->vm, vac->vcpuid);
+		error = vm_suspend_cpu(sc->vm, vac->vcpuid, vac->no_debug);
 		break;
 	case VM_RESUME_CPU:
 		vac = (struct vm_activate_cpu *)data;

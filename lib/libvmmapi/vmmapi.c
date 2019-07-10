@@ -1585,11 +1585,17 @@ void
 vm_vcpu_pause(struct vmctx *ctx)
 {
 	struct vcpu_lock *lock;
+	struct vm_activate_cpu ac;
 
 	lock = &ctx->lock;
 
 	pthread_mutex_lock(&lock->vl_mtx);
 	lock->vl_paused = 1;
+
+	bzero(&ac, sizeof(struct vm_activate_cpu));
+	ac.vcpuid = -1;
+	ac.no_debug = 1;
+	ioctl(ctx->fd, VM_SUSPEND_CPU, &ac);
 	while (lock->vl_running_cnt != 0)
 		pthread_cond_wait(&lock->vl_run_complete_cond, &lock->vl_mtx);
 	pthread_mutex_unlock(&lock->vl_mtx);

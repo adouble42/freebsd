@@ -2349,7 +2349,7 @@ vm_activate_cpu(struct vm *vm, int vcpuid)
 }
 
 int
-vm_suspend_cpu(struct vm *vm, int vcpuid)
+vm_suspend_cpu(struct vm *vm, int vcpuid, int no_debug)
 {
 	int i;
 
@@ -2357,7 +2357,8 @@ vm_suspend_cpu(struct vm *vm, int vcpuid)
 		return (EINVAL);
 
 	if (vcpuid == -1) {
-		vm->debug_cpus = vm->active_cpus;
+		if (no_debug == 0)
+		    vm->debug_cpus = vm->active_cpus;
 		for (i = 0; i < vm->maxcpus; i++) {
 			if (CPU_ISSET(i, &vm->active_cpus))
 				vcpu_notify_event(vm, i, false);
@@ -2366,7 +2367,8 @@ vm_suspend_cpu(struct vm *vm, int vcpuid)
 		if (!CPU_ISSET(vcpuid, &vm->active_cpus))
 			return (EINVAL);
 
-		CPU_SET_ATOMIC(vcpuid, &vm->debug_cpus);
+		if (no_debug == 0)
+		    CPU_SET_ATOMIC(vcpuid, &vm->debug_cpus);
 		vcpu_notify_event(vm, vcpuid, false);
 	}
 	return (0);
