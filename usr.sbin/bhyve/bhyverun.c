@@ -1161,7 +1161,7 @@ main(int argc, char *argv[])
 	}
 
 	if (argc == 1) {
-	vmname = argv[0];
+		vmname = argv[0];
 	} else {
 		vmname = lookup_vmname(&rstate);
 		if (vmname == NULL) {
