@@ -1321,7 +1321,7 @@ init_checkpoint_thread(struct vmctx *ctx)
 		goto fail;
 	}
 
-	snprintf(addr.sun_path, PATH_MAX, "%s/%s",
+	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s",
 		 CHECKPOINT_RUN_DIR, vmname_buf);
 	unlink(addr.sun_path);
 
