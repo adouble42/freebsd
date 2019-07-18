@@ -202,7 +202,6 @@ struct vm_gla2gpa {
 
 struct vm_activate_cpu {
 	int		vcpuid;
-	int		no_debug;
 };
 
 struct vm_cpuset {
