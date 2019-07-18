@@ -235,8 +235,6 @@ int	vm_set_topology(struct vmctx *ctx, uint16_t sockets, uint16_t cores,
 	    uint16_t threads, uint16_t maxcpus);
 int	vm_get_topology(struct vmctx *ctx, uint16_t *sockets, uint16_t *cores,
 	    uint16_t *threads, uint16_t *maxcpus);
-void	vm_vcpu_pause(struct vmctx *ctx);
-void	vm_vcpu_resume(struct vmctx *ctx);
 
 /*
  * FreeBSD specific APIs

@@ -113,6 +113,11 @@ const struct vm_snapshot_kern_info snapshot_kern_structs[] = {
 	{ "vrtc",	STRUCT_VRTC	},
 };
 
+static cpuset_t vcpus_active, vcpus_suspended;
+static pthread_mutex_t vcpu_lock;
+static pthread_cond_t vcpus_idle, vcpus_can_run;
+static bool checkpoint_active;
+
 /*
  * TODO: Harden this function and all of its callers since 'base_str' is a user
  * provided string.
@@ -971,6 +976,76 @@ vm_mem_write_to_file(int fd, const void *src, size_t dst_offset, size_t len)
 	return (0);
 }
 
+void
+checkpoint_cpu_add(int vcpu)
+{
+
+	pthread_mutex_lock(&vcpu_lock);
+	CPU_SET(vcpu, &vcpus_active);
+
+	if (checkpoint_active) {
+		CPU_SET(vcpu, &vcpus_suspended);
+		while (checkpoint_active)
+			pthread_cond_wait(&vcpus_can_run, &vcpu_lock);
+		CPU_CLR(vcpu, &vcpus_suspended);
+	}
+	pthread_mutex_unlock(&vcpu_lock);
+}
+
+/*
+ * When a vCPU is suspended for any reason, it calls
+ * checkpoint_cpu_suspend().  This records that the vCPU is idle.
+ * Before returning from suspension, checkpoint_cpu_resume() is
+ * called.  In suspend we note that the vCPU is idle.  In resume we
+ * pause the vCPU thread until the checkpoint is complete.  The reason
+ * for the two-step process is that vCPUs might already be stopped in
+ * the debug server when a checkpoint is requested.  This approach
+ * allows us to account for and handle those vCPUs.
+ */
+void
+checkpoint_cpu_suspend(int vcpu)
+{
+
+	pthread_mutex_lock(&vcpu_lock);
+	CPU_SET(vcpu, &vcpus_suspended);
+	if (checkpoint_active && CPU_CMP(&vcpus_active, &vcpus_suspended) == 0)
+		pthread_cond_signal(&vcpus_idle);
+	pthread_mutex_unlock(&vcpu_lock);
+}
+
+void
+checkpoint_cpu_resume(int vcpu)
+{
+
+	pthread_mutex_lock(&vcpu_lock);
+	while (checkpoint_active)
+		pthread_cond_wait(&vcpus_can_run, &vcpu_lock);
+	CPU_CLR(vcpu, &vcpus_suspended);
+	pthread_mutex_unlock(&vcpu_lock);
+}
+
+static void
+vm_vcpu_pause(struct vmctx *ctx)
+{
+
+	pthread_mutex_lock(&vcpu_lock);
+	checkpoint_active = true;
+	vm_suspend_cpu(ctx, -1);
+	while (CPU_CMP(&vcpus_active, &vcpus_suspended) != 0)
+		pthread_cond_wait(&vcpus_idle, &vcpu_lock);
+	pthread_mutex_unlock(&vcpu_lock);
+}
+
+static void
+vm_vcpu_resume(struct vmctx *ctx)
+{
+
+	pthread_mutex_lock(&vcpu_lock);
+	checkpoint_active = false;
+	pthread_mutex_unlock(&vcpu_lock);
+	pthread_cond_broadcast(&vcpus_can_run);
+}
+
 static int
 vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 {
@@ -1213,6 +1288,15 @@ init_checkpoint_thread(struct vmctx *ctx)
 	pthread_t checkpoint_pthread;
 	char vmname_buf[MAX_VMNAME];
 	int ret, err = 0;
+
+	err = pthread_mutex_init(&vcpu_lock, NULL);
+	if (err != 0)
+		errc(1, err, "checkpoint mutex init");
+	err = pthread_cond_init(&vcpus_idle, NULL);
+	if (err == 0)
+		err = pthread_cond_init(&vcpus_can_run, NULL);
+	if (err != 0)
+		errc(1, err, "checkpoint cv init");
 
 	socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
 	if (socket_fd < 0) {

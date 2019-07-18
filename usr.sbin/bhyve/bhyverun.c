@@ -436,6 +436,7 @@ fbsdrun_start_thread(void *param)
 	snprintf(tname, sizeof(tname), "vcpu %d", vcpu);
 	pthread_set_name_np(mtp->mt_thr, tname);
 
+	checkpoint_cpu_add(vcpu);
 	gdb_cpu_add(vcpu);
 
 	vm_loop(mtp->mt_ctx, vcpu, vmexit[vcpu].rip);
@@ -790,7 +791,9 @@ static int
 vmexit_debug(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 {
 
+	checkpoint_cpu_suspend(*pvcpu);
 	gdb_cpu_suspend(*pvcpu);
+	checkpoint_cpu_resume(*pvcpu);
 	return (VMEXIT_CONTINUE);
 }
 

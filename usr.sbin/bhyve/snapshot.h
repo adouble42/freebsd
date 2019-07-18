@@ -50,6 +50,9 @@ int lookup_memflags(struct restore_state *rstate);
 size_t lookup_memsize(struct restore_state *rstate);
 int lookup_guest_ncpus(struct restore_state *rstate);
 
+void checkpoint_cpu_add(int vcpu);
+void checkpoint_cpu_resume(int vcpu);
+void checkpoint_cpu_suspend(int vcpu);
 
 int restore_vm_mem(struct vmctx *ctx, struct restore_state *rstate);
 int vm_restore_kern_structs(struct vmctx *ctx, struct restore_state *rstate);
