@@ -711,7 +711,9 @@ vmexit_mtrap(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 
 	stats.vmexit_mtrap++;
 
+	checkpoint_cpu_suspend(*pvcpu);
 	gdb_cpu_mtrap(*pvcpu);
+	checkpoint_cpu_resume(*pvcpu);
 
 	return (VMEXIT_CONTINUE);
 }
