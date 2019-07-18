@@ -67,7 +67,7 @@ __FBSDID("$FreeBSD$");
 #define	MEV_DISABLE	3
 #define	MEV_DEL_PENDING	4
 
-extern char *vmname;
+extern const char *vmname;
 
 static pthread_t mevent_tid;
 static int mevent_timid = 43;
