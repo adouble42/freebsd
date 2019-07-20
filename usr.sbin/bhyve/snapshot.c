@@ -1043,6 +1043,7 @@ vm_vcpu_resume(struct vmctx *ctx)
 	pthread_mutex_lock(&vcpu_lock);
 	checkpoint_active = false;
 	pthread_mutex_unlock(&vcpu_lock);
+	vm_resume_cpu(ctx, -1);
 	pthread_cond_broadcast(&vcpus_can_run);
 }
 
