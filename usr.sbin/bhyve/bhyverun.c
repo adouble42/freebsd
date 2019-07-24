@@ -1317,11 +1317,6 @@ main(int argc, char *argv[])
 	if (init_checkpoint_thread(ctx) < 0)
 		printf("Failed to start checkpoint thread!\r\n");
 
-	/*
-	 * Change the proc title to include the VM name.
-	 */
-	setproctitle("%s", vmname);
-
 	if (restore_file != NULL) {
 		vm_restore_time(ctx);
 	}
