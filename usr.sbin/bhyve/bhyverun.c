@@ -1021,6 +1021,7 @@ main(int argc, char *argv[])
 	int rtc_localtime;
 	bool gdb_stop;
 	struct vmctx *ctx;
+	uint64_t rip;
 	size_t memsize;
 	char *optstr, *restore_file, *receive_migration;
 	struct restore_state rstate;
@@ -1196,6 +1197,8 @@ main(int argc, char *argv[])
 		exit(4);
 	}
 
+	fbsdrun_set_capabilities(ctx, BSP);
+
 	vm_set_memflags(ctx, memflags);
 	err = vm_setup_memory(ctx, memsize, VM_MMAP_ALL);
 	if (err) {
@@ -1295,6 +1298,9 @@ main(int argc, char *argv[])
 		}
 	}
 
+	error = vm_get_register(ctx, BSP, VM_REG_GUEST_RIP, &rip);
+	assert(error == 0);
+
 	/*
 	 * build the guest tables, MP etc.
 	 */
@@ -1341,20 +1347,27 @@ main(int argc, char *argv[])
 	if (init_checkpoint_thread(ctx) < 0)
 		printf("Failed to start checkpoint thread!\r\n");
 
-	if ((restore_file != NULL) || (receive_migration != NULL)) {
+	if ((restore_file != NULL) || (receive_migration != NULL))
 		vm_restore_time(ctx);
-	}
 
-	/* Add CPU 0
+	/*
+	 * Add CPU 0
+	 */
+	fbsdrun_addcpu(ctx, BSP, BSP, rip);
+
+	/*
 	 * If we restore a VM, start all vCPUs now (including APs), otherwise,
 	 * let the guest OS to spin them up later via vmexits.
 	 */
+	if ((restore_file != NULL) || (receive_migration != NULL)) {
+		for (vcpu = 0; vcpu < guest_ncpus; vcpu++) {
+			if (vcpu == BSP)
+				continue;
 
-	for (vcpu = 0; vcpu < guest_ncpus; vcpu++)
-		if (vcpu == BSP || restore_file || receive_migration) {
 			fprintf(stdout, "spinning up vcpu no %d...\r\n", vcpu);
 			spinup_vcpu(ctx, vcpu);
 		}
+	}
 
 	/*
 	 * Head off to the main event dispatch loop
