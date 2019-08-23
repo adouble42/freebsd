@@ -48,6 +48,7 @@ __FBSDID("$FreeBSD$");
 #include "ioapic.h"
 #include "mem.h"
 #include "mevent.h"
+#include "migration.h"
 #include "mptbl.h"
 #include "pci_emul.h"
 #include "pci_irq.h"
@@ -1061,6 +1062,7 @@ int get_checkpoint_msg(int conn_fd, struct vmctx *ctx)
 {
 	unsigned char buf[MAX_MSG_SIZE];
 	struct checkpoint_op *checkpoint_op;
+	struct migrate_req req;
 	int len, recv_len, total_recv = 0;
 	int err = 0;
 
