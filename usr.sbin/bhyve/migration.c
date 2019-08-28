@@ -369,8 +369,6 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 {
 	size_t local_lowmem_size = 0, local_highmem_size = 0;
 	size_t remote_lowmem_size = 0, remote_highmem_size = 0;
-	char *mmap_vm_lowmem = MAP_FAILED;
-	char *mmap_vm_highmem = MAP_FAILED;
 	char *baseaddr;
 	int memsize_ok;
 	char *buffer;
@@ -428,17 +426,6 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 		return (-1);
 	}
 
-	// map highmem and lowmem
-	rc = vm_get_vm_mem(ctx, &mmap_vm_lowmem, &mmap_vm_highmem,
-			   baseaddr, local_lowmem_size,
-			   local_highmem_size);
-	if (rc != 0) {
-		fprintf(stderr,
-			"%s: Could not mmap guest lowmem and highmem\r\n",
-			__func__);
-		return (rc);
-	}
-
 	buffer = malloc(chunk_size * sizeof(char));
 	if (buffer == NULL) {
 		fprintf(stderr,
@@ -462,13 +449,13 @@ migrate_recv_memory(struct vmctx *ctx, int socket)
 			return (-1);
 		}
 
-		memcpy(mmap_vm_lowmem + i * chunk_size, buffer, chunk_size);
+		memcpy(baseaddr + i * chunk_size, buffer, chunk_size);
 	}
 
 	// recv highmem
 	if (local_highmem_size > 0 ){
 		rc = migration_recv_data_from_remote(socket,
-				mmap_vm_highmem,
+				baseaddr + 4 * GB,
 				local_highmem_size);
 		if (rc < 0) {
 			fprintf(stderr,
@@ -587,12 +574,27 @@ migrate_send_kern_struct(struct vmctx *ctx, int socket,
 	int rc;
 	size_t data_size;
 	struct migration_message_type msg;
+	struct vm_snapshot_meta *meta;
 
 	memset(&msg, 0, sizeof(msg));
-
 	msg.type = MESSAGE_TYPE_KERN;
-	rc = vm_snapshot_req(ctx, struct_req, buffer,
-			     KERN_DATA_BUFFER_SIZE, &data_size);
+
+	meta = &(struct vm_snapshot_meta) {
+		.ctx = ctx,
+
+		.dev_req = struct_req,
+
+		.buffer.buf_start = buffer,
+		.buffer.buf_size = SNAPSHOT_BUFFER_SIZE,
+
+		.op = VM_SNAPSHOT_SAVE,
+	};
+
+	memset(meta->buffer.buf_start, 0, meta->buffer.buf_size);
+	meta->buffer.buf = meta->buffer.buf_start;
+	meta->buffer.buf_rem = meta->buffer.buf_size;
+
+	rc = vm_snapshot_req(meta);
 
 	if (rc < 0) {
 		fprintf(stderr,
@@ -602,6 +604,7 @@ migrate_send_kern_struct(struct vmctx *ctx, int socket,
 		return (-1);
 	}
 
+	data_size = vm_get_snapshot_size(meta);
 	msg.len = data_size;
 	msg.req_type = struct_req;
 
@@ -631,6 +634,7 @@ migrate_recv_kern_struct(struct vmctx *ctx, int socket, char *buffer)
 {
 	int rc;
 	struct migration_message_type msg;
+	struct vm_snapshot_meta *meta;
 
 	memset(&msg, 0, sizeof(struct migration_message_type));
 	rc = migration_recv_data_from_remote(socket, &msg, sizeof(msg));
@@ -640,7 +644,7 @@ migrate_recv_kern_struct(struct vmctx *ctx, int socket, char *buffer)
 			__func__);
 		return (-1);
 	}
-	memset(buffer, 0, KERN_DATA_BUFFER_SIZE);
+	memset(buffer, 0, SNAPSHOT_BUFFER_SIZE);
 	rc = migration_recv_data_from_remote(socket, buffer, msg.len);
 	if (rc < 0) {
 		fprintf(stderr,
@@ -650,8 +654,22 @@ migrate_recv_kern_struct(struct vmctx *ctx, int socket, char *buffer)
 		return (-1);
 	}
 
+	meta = &(struct vm_snapshot_meta) {
+		.ctx = ctx,
+
+		.dev_req = msg.req_type,
+
+		.buffer.buf_start = buffer,
+		.buffer.buf_size = msg.len,
+
+		.op = VM_SNAPSHOT_RESTORE,
+	};
+
+	meta->buffer.buf = meta->buffer.buf_start;
+	meta->buffer.buf_rem = meta->buffer.buf_size;
+
 	// restore struct
-	rc = vm_restore_req(ctx, msg.req_type, buffer, msg.len);
+	rc = vm_snapshot_req(meta);
 	if (rc != 0 ) {
 		fprintf(stderr,
 			"%s: Failed to restore struct %d\r\n",
@@ -673,7 +691,7 @@ migrate_kern_data(struct vmctx *ctx, int socket, enum migration_transfer_req req
 
 	snapshot_kern_structs = get_snapshot_kern_structs(&ndevs);
 
-	buffer = malloc(KERN_DATA_BUFFER_SIZE * sizeof(char));
+	buffer = malloc(SNAPSHOT_BUFFER_SIZE * sizeof(char));
 	if (buffer == NULL) {
 		fprintf(stderr,
 			"%s: Could not allocate memory\r\n",
@@ -743,6 +761,7 @@ migrate_send_dev(struct vmctx *ctx, int socket, const char *dev,
 	int rc;
 	size_t data_size;
 	struct migration_message_type msg;
+	struct vm_snapshot_meta *meta;
 	const struct vm_snapshot_dev_info *dev_info;
 
 	data_size = 0;
@@ -756,7 +775,23 @@ migrate_send_dev(struct vmctx *ctx, int socket, const char *dev,
 	    return (0);
 	}
 
-	rc = (*dev_info->snapshot_cb)(ctx, dev, buffer, len, &data_size);
+
+	meta = &(struct vm_snapshot_meta) {
+		.ctx = ctx,
+
+		.dev_name = dev,
+
+		.buffer.buf_start = buffer,
+		.buffer.buf_size = SNAPSHOT_BUFFER_SIZE,
+
+		.op = VM_SNAPSHOT_SAVE,
+	};
+
+	memset(meta->buffer.buf_start, 0, meta->buffer.buf_size);
+	meta->buffer.buf = meta->buffer.buf_start;
+	meta->buffer.buf_rem = meta->buffer.buf_size;
+
+	rc = (*dev_info->snapshot_cb)(meta);
 	if (rc < 0) {
 		fprintf(stderr,
 			"%s: Could not get info about %s dev\r\n",
@@ -764,6 +799,8 @@ migrate_send_dev(struct vmctx *ctx, int socket, const char *dev,
 			dev);
 		return (-1);
 	}
+
+	data_size = vm_get_snapshot_size(meta);
 
 	// send struct size to destination
 	memset(&msg, 0, sizeof(msg));
@@ -805,6 +842,7 @@ migrate_recv_dev(struct vmctx *ctx, int socket, char *buffer, size_t len)
 	int rc;
 	size_t data_size;
 	struct migration_message_type msg;
+	struct vm_snapshot_meta *meta;
 	const struct vm_snapshot_dev_info *dev_info;
 
 	// recv struct size to destination
@@ -844,7 +882,20 @@ migrate_recv_dev(struct vmctx *ctx, int socket, char *buffer, size_t len)
 	    return (0);
 	}
 
-	rc = (*dev_info->restore_cb)(ctx, msg.name, buffer, data_size);
+	meta = &(struct vm_snapshot_meta) {
+		.ctx = ctx,
+		.dev_name = msg.name,
+
+		.buffer.buf_start = buffer,
+		.buffer.buf_size = data_size,
+
+		.op = VM_SNAPSHOT_RESTORE,
+	};
+
+	meta->buffer.buf = meta->buffer.buf_start;
+	meta->buffer.buf_rem = meta->buffer.buf_size;
+
+	rc = (*dev_info->snapshot_cb)(meta);
 	if (rc != 0) {
 		fprintf(stderr,
 			"%s: Could not restore %s dev\r\n",
@@ -1009,19 +1060,14 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 		goto done;
 	}
 
-	rc = pause_devs(ctx);
+	rc = vm_pause_user_devs(ctx);
 	if (rc != 0) {
 		fprintf(stderr, "Could not pause devices\r\n");
 		error = rc;
 		goto done;
 	}
 
-	rc = vm_vcpu_lock_all(ctx);
-	if (rc != 0) {
-		fprintf(stderr, "%s: Could not suspend vm\r\n", __func__);
-		error = rc;
-		goto done;
-	}
+	vm_vcpu_pause(ctx);
 
 	rc = migrate_send_memory(ctx, s);
 	if (rc != 0) {
@@ -1065,14 +1111,14 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 	}
 
 	// Poweroff the vm
-	vm_vcpu_unlock_all(ctx);
+	vm_vcpu_resume(ctx);
 
 	rc = vm_suspend(ctx, VM_SUSPEND_POWEROFF);
 	if (rc != 0) {
 		fprintf(stderr, "Failed to suspend vm\n");
 	}
 
-	rc = resume_devs(ctx);
+	rc = vm_resume_user_devs(ctx);
 	if (rc != 0)
 		fprintf(stderr, "Could not resume devices\r\n");
 
@@ -1086,10 +1132,10 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 	goto done;
 
 unlock_vm_and_exit:
-	vm_vcpu_unlock_all(ctx);
+	vm_vcpu_resume(ctx);
 done:
 
-	rc = resume_devs(ctx);
+	rc = vm_resume_user_devs(ctx);
 	if (rc != 0)
 		fprintf(stderr, "Could not resume devices\r\n");
 	close(s);
