@@ -86,6 +86,7 @@ get_system_specs_for_migration(struct migration_system_specs *specs)
 
 	mib[1] = HW_MACHINE;
 	memset(interm, 0, MAX_SPEC_LEN);
+	len_machine = sizeof(interm);
 	rc = sysctl(mib, 2, interm, &len_machine, NULL, 0);
 	if (rc != 0) {
 		perror("Could not retrieve HW_MACHINE specs");
@@ -96,6 +97,7 @@ get_system_specs_for_migration(struct migration_system_specs *specs)
 	memset(interm, 0, MAX_SPEC_LEN);
 	mib[0] = CTL_HW;
 	mib[1] = HW_MODEL;
+	len_model = sizeof(interm);
 	rc = sysctl(mib, 2, interm, &len_model, NULL, 0);
 	if (rc != 0) {
 		perror("Could not retrieve HW_MODEL specs");
@@ -105,6 +107,7 @@ get_system_specs_for_migration(struct migration_system_specs *specs)
 
 	mib[0] = CTL_HW;
 	mib[1] = HW_PAGESIZE;
+	len_pagesize = sizeof(num);
 	rc = sysctl(mib, 2, &num, &len_pagesize, NULL, 0);
 	if (rc != 0) {
 		perror("Could not retrieve HW_PAGESIZE specs");
