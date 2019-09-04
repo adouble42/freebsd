@@ -235,14 +235,15 @@ vm_mmap_memseg(struct vmctx *ctx, vm_paddr_t gpa, int segid, vm_ooffset_t off,
 	return (error);
 }
 
-int vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
-			size_t *lowmem_size, size_t *highmem_size)
+int
+vm_get_guestmem_from_ctx(struct vmctx *ctx, char **guest_baseaddr,
+    size_t *lowmem_size, size_t *highmem_size)
 {
+
 	*guest_baseaddr = ctx->baseaddr;
 	*lowmem_size = ctx->lowmem;
 	*highmem_size = ctx->highmem;
-
-	return 0;
+	return (0);
 }
 
 int
@@ -461,7 +462,7 @@ vm_rev_map_gpa(struct vmctx *ctx, void *addr)
 {
 	vm_paddr_t offaddr;
 
-	offaddr = (char *) addr - ctx->baseaddr;
+	offaddr = (char *)addr - ctx->baseaddr;
 
 	if (ctx->lowmem > 0)
 		if (offaddr >= 0 && offaddr <= ctx->lowmem)
@@ -469,19 +470,18 @@ vm_rev_map_gpa(struct vmctx *ctx, void *addr)
 
 	if (ctx->highmem > 0)
 		if (offaddr >= 4*GB && offaddr < 4*GB + ctx->highmem)
-				return (offaddr);
+			return (offaddr);
 
-	return ((vm_paddr_t) -1);
+	return ((vm_paddr_t)-1);
 }
 
 /* TODO: maximum size for vmname */
 int
 vm_get_name(struct vmctx *ctx, char *buf, size_t max_len)
 {
-	if (max_len < strlen(ctx->name))
-		return (EINVAL);
 
-	strlcpy(buf, ctx->name, max_len);
+	if (strlcpy(buf, ctx->name, max_len) >= max_len)
+		return (EINVAL);
 	return (0);
 }
 
@@ -1548,87 +1548,96 @@ vm_restart_instruction(void *arg, int vcpu)
 int
 vm_snapshot_req(struct vm_snapshot_meta *meta)
 {
-	int error;
 
-	error = ioctl(meta->ctx->fd, VM_SNAPSHOT_REQ, meta);
-	if (error != 0) {
-		fprintf(stderr, "%s: snapshot failed for %s\r\n",
-			__func__, meta->dev_name);
-		goto done;
+	if (ioctl(meta->ctx->fd, VM_SNAPSHOT_REQ, meta) == -1) {
+#ifdef SNAPSHOT_DEBUG
+		fprintf(stderr, "%s: snapshot failed for %s: %d\r\n",
+		    __func__, meta->dev_name, errno);
+#endif
+		return (-1);
 	}
-
-done:
-	return (error);
+	return (0);
 }
 
 static int
 vm_mem_read_from_file(int fd, void *dest, size_t file_offset, size_t len)
 {
-	ssize_t cnt_read = 0;
-	size_t read_total = 0;
-	size_t to_read = len;
+	char *p;
+	ssize_t cnt_read;
 
-	if ( lseek(fd, file_offset , SEEK_SET) < 0) {
+	if (lseek(fd, file_offset, SEEK_SET) == -1) {
+#ifef SNAPSHOT_DEBUG
 		fprintf(stderr,
-			"%s: Could not change file offset errno = %d\r\n",
-			__func__, errno);
+		    "%s: Could not change file offset errno = %d\r\n",
+		    __func__, errno);
+#endif
 		return (-1);
 	}
 
-	while (read_total < len) {
-		cnt_read = read(fd, dest + read_total, to_read);
-		/* TODO - fix for when read returns 0 */
-		if (cnt_read <= 0) {
+	p = dest;
+	while (len > 0) {
+		cnt_read = read(fd, p, len);
+		if (cnt_read == 0) {
+			errno = ENOSPC;
+#ifdef SNAPSHOT_DEBUG
+			fprintf(stderr, "%s: short read\r\n", __func__);
+#endif
+			return (-1);
+		} else if (cnt_read < 0) {
+#ifdef SNAPSHOT_DEBUG
 			fprintf(stderr,"%s: read error: %d\r\n",
-			__func__,  errno);
+			    __func__, errno);
+#endif
 			return (-1);
 		}
-		read_total += cnt_read;
-		to_read -= cnt_read;
+		p += cnt_read;
+		len -= cnt_read;
 	}
-
 	return (0);
 }
 
 int
 vm_restore_mem(struct vmctx *ctx, int vmmem_fd, size_t size)
 {
+
 	if (ctx->lowmem + ctx->highmem != size) {
+#ifdef SNAPSHOT_DEBUG
 		fprintf(stderr, "%s: mem size mismatch: %ld vs %ld\n",
 			__func__, ctx->lowmem + ctx->highmem, size);
+#endif
 		return (-1);
 	}
 
-	if (vm_mem_read_from_file(vmmem_fd, ctx->baseaddr,
-				0, ctx->lowmem) != 0) {
+	if (vm_mem_read_from_file(vmmem_fd, ctx->baseaddr, 0, ctx->lowmem) !=
+	    0) {
+#ifdef SNAPSHOT_DEBUG
 		fprintf(stderr,
-			"%s: Could not read lowmem from file\r\n", __func__);
+		    "%s: Could not read lowmem from file\r\n", __func__);
+#endif
 		return (-1);
 	}
 
 	if (ctx->highmem > 0) {
 		if (vm_mem_read_from_file(vmmem_fd, ctx->baseaddr + 4*GB,
-				ctx->lowmem, ctx->highmem) != 0) {
-
+			ctx->lowmem, ctx->highmem) != 0) {
+#ifdef SNAPSHOT_DEBUG
 			fprintf(stderr,
-				"%s: Could not read highmem from file\r\n",
-				__func__);
+			    "%s: Could not read highmem from file\r\n",
+			    __func__);
+#endif
 			return (-1);
 		}
 	}
-
 	return (0);
 }
 
 int
 vm_restore_time(struct vmctx *ctx)
 {
-	int error, dummy;
+	int dummy;
 
 	dummy = 0;
-	error = ioctl(ctx->fd, VM_RESTORE_TIME, &dummy);
-
-	return (error);
+	return (ioctl(ctx->fd, VM_RESTORE_TIME, &dummy));
 }
 
 int
