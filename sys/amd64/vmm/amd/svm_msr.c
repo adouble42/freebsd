@@ -164,6 +164,7 @@ svm_wrmsr(struct svm_softc *sc, int vcpu, u_int num, uint64_t val, bool *retu)
 		break;
 	case MSR_TSC:
 		error = svm_set_tsc_offset(sc, vcpu, val - rdtsc());
+		break;
 	case MSR_EXTFEATURES:
 		break;
 	default:
