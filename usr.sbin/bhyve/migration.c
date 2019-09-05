@@ -978,23 +978,26 @@ end:
 	return (error);
 }
 
-int
-vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
+static inline int
+migrate_connections(struct migrate_req req, int *socket_fd,
+		    int *connection_socket_fd,
+		    enum migration_transfer_req type)
 {
 	unsigned char ipv4_addr[MAX_IP_LEN];
 	unsigned char ipv6_addr[MAX_IP_LEN];
 	int addr_type;
-	struct sockaddr_in sa;
-	int s;
-	int rc, error;
-	size_t migration_completed;
+	int error;
+	int s, con_socket;
+	struct sockaddr_in sa, client_sa;
+	socklen_t client_len;
+	int rc;
 
 	rc = get_migration_host_and_type(req.host, ipv4_addr,
 					 ipv6_addr, &addr_type);
 
 	if (rc != 0) {
-		fprintf(stderr, "%s: Invalid address or not IPv6.", __func__);
-		fprintf(stderr, "%s: :IP address used for migration: %s;\r\n"
+		fprintf(stderr, "%s: Invalid address or not IPv6.\r\n", __func__);
+		fprintf(stderr, "%s: IP address used for migration: %s;\r\n"
 				"Port used for migration: %d\r\n"
 				"Exiting...\r\n",
 				__func__,
@@ -1016,38 +1019,95 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 		return (-1);
 	}
 
-	fprintf(stdout, "%s: Starting connection to %s on %d port...\r\n",
-			__func__, ipv4_addr, req.port);
-
-	/*
-	 * Connect to destination host
-	 * This host is the client and the remote host is the server
-	 */
-
 	s = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (s < 0) {
-		perror("Could not create the socket");
+		perror("Could not create socket");
 		return (-1);
 	}
 
 	bzero(&sa, sizeof(sa));
 
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(req.port);
+	switch (type) {
+		case MIGRATION_SEND_REQ:
+			fprintf(stdout, "%s: Starting connection to %s on %d port...\r\n",
+				__func__, ipv4_addr, req.port);
 
-	rc = inet_pton(AF_INET, ipv4_addr, &sa.sin_addr);
-	if (rc <= 0) {
-		fprintf(stderr, "%s: Could not retrive the IPV4 address", __func__);
-		return (-1);
+			sa.sin_family = AF_INET;
+			sa.sin_port = htons(req.port);
+
+			rc = inet_pton(AF_INET, ipv4_addr, &sa.sin_addr);
+			if (rc <= 0) {
+				fprintf(stderr, "%s: Could not retrive the IPV4 address", __func__);
+				return (-1);
+			}
+
+			rc = connect(s, (struct sockaddr *)&sa, sizeof(sa));
+
+			if (rc < 0) {
+				perror("Could not connect to the remote host");
+				error = rc;
+				goto done_close_s;
+			}
+			*socket_fd = s;
+			break;
+		case MIGRATION_RECV_REQ:
+			fprintf(stdout, "%s: Waiting for connections from %s on %d port...\r\n",
+					__func__, ipv4_addr, req.port);
+
+			sa.sin_family = AF_INET;
+			sa.sin_port = htons(req.port);
+			sa.sin_addr.s_addr = htonl(INADDR_ANY);
+
+			rc = bind(s , (struct sockaddr *)&sa, sizeof(sa));
+
+			if (rc < 0) {
+				perror("Could not bind");
+				error = -1;
+				goto done_close_s;
+			}
+
+			listen(s, 1);
+
+			con_socket = accept(s, (struct sockaddr *)&client_sa, &client_len);
+
+			if (con_socket < 0) {
+				fprintf(stderr, "%s: Could not accept connection\r\n", __func__);
+				error = -1;
+				goto done_close_s;
+			}
+			*socket_fd = s;
+			*connection_socket_fd = con_socket;
+			break;
+		default:
+			fprintf(stderr, "%s: unknown operation request\r\n",
+				__func__);
+			error = -1;
+			goto done;
 	}
 
-	rc = connect(s, (struct sockaddr *)&sa, sizeof(sa));
+	error = 0;
+	goto done;
+
+done_close_s:
+	close(s);
+done:
+	return (error);
+}
+
+int
+vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
+{
+	int s;
+	int rc, error;
+	size_t migration_completed;
+
+
+	rc = migrate_connections(req, &s, NULL, MIGRATION_SEND_REQ);
 
 	if (rc < 0) {
-		perror("Could not connect to the remote host");
-		error = rc;
-		goto done;
+		fprintf(stderr, "%s: Could not create connection\r\n", __func__);
+		return (-1);
 	}
 
 	// send system requirements
@@ -1145,73 +1205,13 @@ done:
 int
 vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req)
 {
-	unsigned char ipv4_addr[MAX_IP_LEN];
-	unsigned char ipv6_addr[MAX_IP_LEN];
-	int addr_type;
 	int s, con_socket;
-	struct sockaddr_in sa, client_sa;
-	socklen_t client_len;
 	int rc;
 	size_t migration_completed;
 
-	rc = get_migration_host_and_type(req.host, ipv4_addr,
-					 ipv6_addr, &addr_type);
-
+	rc = migrate_connections(req, &s, &con_socket, MIGRATION_RECV_REQ);
 	if (rc != 0) {
-		fprintf(stderr, "%s: Invalid address or not IPv6.\r\n", __func__);
-		fprintf(stderr, "%s: IP address used for migration: %s;\r\n"
-				"Port used for migration: %d\r\n"
-				"Exiting...\r\n",
-				__func__,
-				req.host,
-				req.port);
-		return (rc);
-	}
-
-	if (addr_type == AF_INET6) {
-		fprintf(stderr, "%s: IPv6 is not supported yet for migration. "
-				"Please try again using a IPv4 address.\r\n",
-				__func__);
-
-		fprintf(stderr, "%s: IP address used for migration: %s;\r\n"
-				"Port used for migration: %d\r\n",
-				__func__,
-				ipv6_addr,
-				req.port);
-		return (-1);
-	}
-
-	fprintf(stdout, "%s: Waiting for connections from %s on %d port...\r\n",
-			__func__, ipv4_addr, req.port);
-
-	s = socket(AF_INET, SOCK_STREAM, 0);
-
-	if (s < 0) {
-		perror("Could not create socket");
-		return (-1);
-	}
-
-	bzero(&sa, sizeof(sa));
-
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(req.port);
-	sa.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	rc = bind(s , (struct sockaddr *)&sa, sizeof(sa));
-
-	if (rc < 0) {
-		perror("Could not bind");
-		close(s);
-		return (-1);
-	}
-
-	listen(s, 1);
-
-	con_socket = accept(s, (struct sockaddr *)&client_sa, &client_len);
-
-	if (con_socket < 0) {
-		fprintf(stderr, "%s: Could not accept connection\r\n", __func__);
-		close(s);
+		fprintf(stderr, "%s: Could not create connections\r\n", __func__);
 		return (-1);
 	}
 
