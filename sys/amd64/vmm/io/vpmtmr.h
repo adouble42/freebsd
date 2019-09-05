@@ -42,6 +42,8 @@ void vpmtmr_cleanup(struct vpmtmr *pmtmr);
 int vpmtmr_handler(struct vm *vm, int vcpuid, bool in, int port, int bytes,
     uint32_t *val);
 
+#ifdef BHYVE_SNAPSHOT
 int vpmtmr_snapshot(struct vpmtmr *vpmtmr, struct vm_snapshot_meta *meta);
+#endif
 
 #endif

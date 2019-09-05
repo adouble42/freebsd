@@ -32,6 +32,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_bhyve_snapshot.h"
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/smp.h>
@@ -290,7 +292,9 @@ static int vmx_getdesc(void *arg, int vcpu, int reg, struct seg_desc *desc);
 static int vmx_getreg(void *arg, int vcpu, int reg, uint64_t *retval);
 static int vmxctx_setreg(struct vmxctx *vmxctx, int reg, uint64_t val);
 static void vmx_inject_pir(struct vlapic *vlapic);
+#ifdef BHYVE_SNAPSHOT
 static int vmx_restore_tsc(void *arg, int vcpu, uint64_t now);
+#endif
 
 #ifdef KTR
 static const char *
@@ -1284,12 +1288,10 @@ vmx_set_tsc_offset(struct vmx *vmx, int vcpu, uint64_t offset)
 	}
 
 	error = vmwrite(VMCS_TSC_OFFSET, offset);
-	if (error != 0)
-		goto done;
-
-	error = vm_set_tsc_offset(vmx->vm, vcpu, offset);
-
-done:
+#ifdef BHYVE_SNAPSHOT
+	if (error == 0)
+		error = vm_set_tsc_offset(vmx->vm, vcpu, offset);
+#endif
 	return (error);
 }
 
@@ -3797,6 +3799,7 @@ vmx_vlapic_cleanup(void *arg, struct vlapic *vlapic)
 	free(vlapic, M_VLAPIC);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 vmx_snapshot_vmi(void *arg, struct vm_snapshot_meta *meta)
 {
@@ -3941,6 +3944,7 @@ vmx_restore_tsc(void *arg, int vcpu, uint64_t offset)
 		VMCLEAR(vmcs);
 	return (error);
 }
+#endif
 
 struct vmm_ops vmm_ops_intel = {
 	.init		= vmx_init,
@@ -3959,7 +3963,9 @@ struct vmm_ops vmm_ops_intel = {
 	.vmspace_free	= ept_vmspace_free,
 	.vlapic_init	= vmx_vlapic_init,
 	.vlapic_cleanup	= vmx_vlapic_cleanup,
+#ifdef BHYVE_SNAPSHOT
 	.vmsnapshot	= vmx_snapshot_vmi,
 	.vmcx_snapshot	= vmx_snapshot_vmcx,
 	.vm_restore_tsc	= vmx_restore_tsc,
+#endif
 };

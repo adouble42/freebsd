@@ -44,7 +44,9 @@ int	vhpet_mmio_write(void *vm, int vcpuid, uint64_t gpa, uint64_t val,
 int	vhpet_mmio_read(void *vm, int vcpuid, uint64_t gpa, uint64_t *val,
 	    int size, void *arg);
 int	vhpet_getcap(struct vm_hpet_cap *cap);
+#ifdef BHYVE_SNAPSHOT
 int	vhpet_snapshot(struct vhpet *vhpet, struct vm_snapshot_meta *meta);
 int	vhpet_restore_time(struct vhpet *vhpet);
+#endif
 
 #endif	/* _VHPET_H_ */

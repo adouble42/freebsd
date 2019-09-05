@@ -31,6 +31,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_bhyve_snapshot.h"
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -211,12 +213,14 @@ static struct vmm_ops *ops;
 	(ops != NULL ? (*ops->vlapic_init)(vmi, vcpu) : NULL)
 #define	VLAPIC_CLEANUP(vmi, vlapic)		\
 	(ops != NULL ? (*ops->vlapic_cleanup)(vmi, vlapic) : NULL)
+#ifdef BHYVE_SNAPSHOT
 #define	VM_SNAPSHOT_VMI(vmi, meta) \
 	(ops != NULL ? (*ops->vmsnapshot)(vmi, meta) : ENXIO)
 #define	VM_SNAPSHOT_VMCX(vmi, meta, vcpuid) \
 	(ops != NULL ? (*ops->vmcx_snapshot)(vmi, meta, vcpuid) : ENXIO)
 #define	VM_RESTORE_TSC(vmi, vcpuid, offset) \
 	(ops != NULL ? (*ops->vm_restore_tsc)(vmi, vcpuid, offset) : ENXIO)
+#endif
 
 #define	fpu_start_emulating()	load_cr0(rcr0() | CR0_TS)
 #define	fpu_stop_emulating()	clts()
@@ -2730,6 +2734,7 @@ vm_get_wiredcnt(struct vm *vm, int vcpu, struct vmm_stat_type *stat)
 VMM_STAT_FUNC(VMM_MEM_RESIDENT, "Resident memory", vm_get_rescnt);
 VMM_STAT_FUNC(VMM_MEM_WIRED, "Wired memory", vm_get_wiredcnt);
 
+#ifdef BHYVE_SNAPSHOT
 static int
 vm_snapshot_vcpus(struct vm *vm, struct vm_snapshot_meta *meta)
 {
@@ -2901,3 +2906,4 @@ vm_restore_time(struct vm *vm)
 
 	return (0);
 }
+#endif

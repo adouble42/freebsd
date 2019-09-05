@@ -45,6 +45,8 @@ int vatpit_handler(struct vm *vm, int vcpuid, bool in, int port, int bytes,
     uint32_t *eax);
 int vatpit_nmisc_handler(struct vm *vm, int vcpuid, bool in, int port,
     int bytes, uint32_t *eax);
+#ifdef BHYVE_SNAPSHOT
 int vatpit_snapshot(struct vatpit *vatpit, struct vm_snapshot_meta *meta);
+#endif
 
 #endif	/* _VATPIT_H_ */

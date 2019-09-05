@@ -29,6 +29,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_bhyve_snapshot.h"
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/smp.h>
@@ -276,6 +278,7 @@ svm_restore(void)
 	svm_enable(NULL);
 }		
 
+#ifdef BHYVE_SNAPSHOT
 int
 svm_set_tsc_offset(struct svm_softc *sc, int vcpu, uint64_t offset)
 {
@@ -292,6 +295,7 @@ svm_set_tsc_offset(struct svm_softc *sc, int vcpu, uint64_t offset)
 
 	return (error);
 }
+#endif
 
 /* Pentium compatible MSRs */
 #define MSR_PENTIUM_START 	0	
@@ -2215,6 +2219,7 @@ svm_setreg(void *arg, int vcpu, int ident, uint64_t val)
 	return (EINVAL);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 svm_snapshot_reg(void *arg, int vcpu, int ident,
 		 struct vm_snapshot_meta *meta)
@@ -2242,6 +2247,7 @@ svm_snapshot_reg(void *arg, int vcpu, int ident,
 done:
 	return (ret);
 }
+#endif
 
 static int
 svm_setcap(void *arg, int vcpu, int type, int val)
@@ -2325,6 +2331,7 @@ svm_vlapic_cleanup(void *arg, struct vlapic *vlapic)
         free(vlapic, M_SVM_VLAPIC);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 svm_snapshot_vmi(void *arg, struct vm_snapshot_meta *meta)
 {
@@ -2622,6 +2629,7 @@ svm_restore_tsc(void *arg, int vcpu, uint64_t offset)
 
 	return (err);
 }
+#endif
 
 struct vmm_ops vmm_ops_amd = {
 	.init		= svm_init,
@@ -2640,7 +2648,9 @@ struct vmm_ops vmm_ops_amd = {
 	.vmspace_free	= svm_npt_free,
 	.vlapic_init	= svm_vlapic_init,
 	.vlapic_cleanup	= svm_vlapic_cleanup,
+#ifdef BHYVE_SNAPSHOT
 	.vmsnapshot	= svm_snapshot_vmi,
 	.vmcx_snapshot	= svm_snapshot_vmcx,
 	.vm_restore_tsc	= svm_restore_tsc,
+#endif
 };

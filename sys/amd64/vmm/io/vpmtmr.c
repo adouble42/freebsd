@@ -29,6 +29,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_bhyve_snapshot.h"
+
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/kernel.h>
@@ -105,6 +107,7 @@ vpmtmr_handler(struct vm *vm, int vcpuid, bool in, int port, int bytes,
 	return (0);
 }
 
+#ifdef BHYVE_SNAPSHOT
 int
 vpmtmr_snapshot(struct vpmtmr *vpmtmr, struct vm_snapshot_meta *meta)
 {
@@ -115,3 +118,4 @@ vpmtmr_snapshot(struct vpmtmr *vpmtmr, struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif

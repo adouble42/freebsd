@@ -29,6 +29,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_bhyve_snapshot.h"
+
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/queue.h>
@@ -810,6 +812,7 @@ vatpic_cleanup(struct vatpic *vatpic)
 	free(vatpic, M_VATPIC);
 }
 
+#ifdef BHYVE_SNAPSHOT
 int
 vatpic_snapshot(struct vatpic *vatpic, struct vm_snapshot_meta *meta)
 {
@@ -847,3 +850,4 @@ vatpic_snapshot(struct vatpic *vatpic, struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
