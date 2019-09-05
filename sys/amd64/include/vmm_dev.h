@@ -31,6 +31,8 @@
 #ifndef	_VMM_DEV_H_
 #define	_VMM_DEV_H_
 
+#include "vmm_migration.h"
+
 struct vm_snapshot_meta;
 
 #ifdef _KERNEL
@@ -235,6 +237,13 @@ struct vm_cpu_topology {
 	uint16_t	maxcpus;
 };
 
+struct vm_get_dirty_page_list {
+	uint8_t	*page_list;
+	size_t	num_pages;
+	struct vmm_migration_segment lowmem;
+	struct vmm_migration_segment highmem;
+};
+
 enum {
 	/* general routines */
 	IOCNUM_ABIVERS = 0,
@@ -318,7 +327,9 @@ enum {
 	/* checkpoint */
 	IOCNUM_SNAPSHOT_REQ = 113,
 
-	IOCNUM_RESTORE_TIME = 115
+	IOCNUM_RESTORE_TIME = 115,
+	IOCNUM_VM_GET_DIRTY_PAGE_LIST = 117,
+	IOCNUM_VM_COPY_VMM_PAGES = 118,
 };
 
 #define	VM_RUN		\
@@ -433,4 +444,8 @@ enum {
 	_IOWR('v', IOCNUM_SNAPSHOT_REQ, struct vm_snapshot_meta)
 #define VM_RESTORE_TIME \
 	_IOWR('v', IOCNUM_RESTORE_TIME, int)
+#define VM_GET_DIRTY_PAGE_LIST \
+	_IOWR('v', IOCNUM_VM_GET_DIRTY_PAGE_LIST, struct vm_get_dirty_page_list)
+#define VM_COPY_VMM_PAGES \
+	_IOWR('v', IOCNUM_VM_COPY_VMM_PAGES, struct vmm_migration_pages_req)
 #endif
