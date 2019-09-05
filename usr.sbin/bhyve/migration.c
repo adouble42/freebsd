@@ -1182,10 +1182,7 @@ vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req)
 	if (rc != 0)
 		fprintf(stderr, "Could not resume devices\r\n");
 
-	/* Wait for CPUs to suspend. TODO: write this properly. */
-	sleep(5);
 	vm_destroy(ctx);
-	/* XXX */
 	exit(0);
 
 	error = 0;
@@ -1266,8 +1263,6 @@ vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req)
 		return (-1);
 	}
 
-	// wait for source vm to be destroyed
-	sleep(5);
 	close(con_socket);
 	close(s);
 	return (0);
