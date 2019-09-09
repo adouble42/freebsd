@@ -1215,6 +1215,7 @@ int get_checkpoint_msg(int conn_fd, struct vmctx *ctx)
 	struct checkpoint_op *checkpoint_op;
 	struct migrate_req req;
 	int len, recv_len, total_recv = 0;
+	int memflags;
 	int err = 0;
 
 	len = sizeof(struct checkpoint_op); /* expected length */
@@ -1236,6 +1237,7 @@ int get_checkpoint_msg(int conn_fd, struct vmctx *ctx)
 			err = vm_checkpoint(ctx, checkpoint_op->snapshot_filename, true);
 			break;
 		case START_MIGRATE:
+			fprintf(stdout, "Starting the warm migration procedure\r\n");
 			memset(&req, 0, sizeof(struct migrate_req));
 			req.port = checkpoint_op->port;
 			memcpy(req.host, checkpoint_op->host, MAX_HOSTNAME_LEN);
@@ -1246,7 +1248,38 @@ int get_checkpoint_msg(int conn_fd, struct vmctx *ctx)
 				checkpoint_op->host,
 				checkpoint_op->port);
 
-			err = vm_send_migrate_req(ctx, req);
+			err = vm_send_migrate_req(ctx, req, false);
+			break;
+		case START_MIGRATE_LIVE:
+			fprintf(stdout, "Starting the live migration procedure\r\n");
+
+			/* Currently, the live migration is implemented only
+			 * for guests that are started using -S (wired
+			 * memory option).
+			 */
+
+			/* Check memflags. If the VM_MEM_F_WIRED bit is not
+			 * set, then the live migration procedure cannot be
+			 * done. */
+			memflags = vm_get_memflags(ctx);
+			if (!(memflags & VM_MEM_F_WIRED)) {
+				fprintf(stderr, "%s: Migration not supported for un-wired guests\r\n", __func__);
+				err = -1;
+				goto done;
+			}
+
+			memset(&req, 0, sizeof(struct migrate_req));
+			req.port = checkpoint_op->port;
+			memcpy(req.host, checkpoint_op->host, MAX_HOSTNAME_LEN);
+			req.host[MAX_HOSTNAME_LEN - 1] = 0;
+			fprintf(stderr, "%s: IP address used for migration: %s;\r\n"
+				"Port used for migration: %d\r\n",
+				__func__,
+				checkpoint_op->host,
+				checkpoint_op->port);
+
+			err = vm_send_migrate_req(ctx, req, true);
+
 			break;
 		default:
 			fprintf(stderr, "Unrecognized checkpoint operation.\n");
