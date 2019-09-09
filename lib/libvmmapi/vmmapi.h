@@ -267,6 +267,7 @@ enum checkpoint_opcodes {
 	START_CHECKPOINT = 0,
 	START_SUSPEND = 1,
 	START_MIGRATE = 2,
+	START_MIGRATE_LIVE = 3,
 };
 
 struct checkpoint_op {
