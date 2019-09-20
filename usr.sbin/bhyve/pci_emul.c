@@ -1965,7 +1965,7 @@ INOUT_PORT(pci_cfgdata, CONF1_DATA_PORT+3, IOPORT_F_INOUT, pci_emul_cfgdata);
 
 #ifdef BHYVE_SNAPSHOT
 /*
- * Saves/restores PCI device emulated state.  Returns 0 on success.
+ * Saves/restores PCI device emulated state. Returns 0 on success.
  */
 static int
 pci_snapshot_pci_dev(struct vm_snapshot_meta *meta)
