@@ -452,6 +452,7 @@ lpc_pirq_routed(void)
 		pci_set_cfgdata8(lpc_bridge, 0x68 + pin, pirq_read(pin + 5));
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 pci_lpc_snapshot(struct vm_snapshot_meta *meta)
 {
@@ -469,6 +470,7 @@ pci_lpc_snapshot(struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
 
 struct pci_devemu pci_de_lpc = {
 	.pe_emu =	"lpc",
@@ -477,6 +479,8 @@ struct pci_devemu pci_de_lpc = {
 	.pe_cfgwrite =	pci_lpc_cfgwrite,
 	.pe_barwrite =	pci_lpc_write,
 	.pe_barread =	pci_lpc_read,
+#ifdef BHYVE_SNAPSHOT
 	.pe_snapshot =	pci_lpc_snapshot,
+#endif
 };
 PCI_EMUL_SET(pci_de_lpc);

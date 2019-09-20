@@ -31,8 +31,6 @@
 #ifndef	_FBSDRUN_H_
 #define	_FBSDRUN_H_
 
-//#include <ucl.h>
-
 #define	VMEXIT_CONTINUE		(0)
 #define	VMEXIT_ABORT		(-1)
 

@@ -97,7 +97,9 @@ __FBSDID("$FreeBSD$");
 #include "pci_irq.h"
 #include "pci_lpc.h"
 #include "smbiostbl.h"
+#ifdef BHYVE_SNAPSHOT
 #include "snapshot.h"
+#endif
 #include "xmsr.h"
 #include "spinup_ap.h"
 #include "rtc.h"
@@ -1035,7 +1037,7 @@ int
 main(int argc, char *argv[])
 {
 	int c, error, dbg_port, gdb_port, err, bvmcons;
-	int max_vcpus, mptgen, memflags, vcpu;
+	int max_vcpus, mptgen, memflags;
 	int rtc_localtime;
 	bool gdb_stop;
 	struct vmctx *ctx;
@@ -1045,6 +1047,7 @@ main(int argc, char *argv[])
 #ifdef BHYVE_SNAPSHOT
 	char *restore_file;
 	struct restore_state rstate;
+	int vcpu;
 
 	restore_file = NULL;
 #endif

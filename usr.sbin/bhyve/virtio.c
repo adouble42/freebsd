@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/atomic.h>
 #include <machine/vmm_snapshot.h>
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
