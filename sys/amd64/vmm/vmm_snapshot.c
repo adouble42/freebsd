@@ -68,14 +68,6 @@ vm_get_snapshot_size(struct vm_snapshot_meta *meta)
 }
 
 int
-vm_snapshot_guest2host_addr(void **addrp, size_t len, int restore_null,
-			    struct vm_snapshot_meta *meta)
-{
-	/* The kernel devices/structures should not map guest memory */
-	return (0);
-}
-
-int
 vm_snapshot_buf_cmp(volatile void *data, size_t data_size,
 		    struct vm_snapshot_meta *meta)
 {
