@@ -1126,6 +1126,8 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 	if (guest_highmem > 0)
 		guest_highmem_addr = guest_baseaddr + 4*GB;
 
+	vm_vcpu_pause(ctx);
+
 	ret = vm_pause_user_devs(ctx);
 	if (ret != 0) {
 		fprintf(stderr, "Could not pause devices\r\n");
@@ -1133,27 +1135,26 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 		goto done;
 	}
 
-	vm_vcpu_pause(ctx);
 
 	ret = vm_snapshot_kern_structs(ctx, kdata_fd, xop);
 	if (ret != 0) {
 		fprintf(stderr, "Failed to snapshot vm kernel data.\n");
 		error = -1;
-		goto done_unlock;
+		goto done;
 	}
 
 	ret = vm_snapshot_user_devs(ctx, kdata_fd, xop);
 	if (ret != 0) {
 		fprintf(stderr, "Failed to snapshot device state.\n");
 		error = -1;
-		goto done_unlock;
+		goto done;
 	}
 
 	if (vm_mem_write_to_file(fd_checkpoint, guest_lowmem_addr,
 				0, guest_lowmem) != 0) {
 		perror("Could not write lowmem");
 		error = -1;
-		goto done_unlock;
+		goto done;
 	}
 
 	if (guest_highmem > 0) {
@@ -1161,7 +1162,7 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 				guest_lowmem, guest_highmem) != 0) {
 			perror("Could not write highmem");
 			error = -1;
-			goto done_unlock;
+			goto done;
 		}
 	}
 
@@ -1172,12 +1173,11 @@ vm_checkpoint(struct vmctx *ctx, char *checkpoint_file, bool stop_vm)
 		exit(0);
 	}
 
-done_unlock:
-	vm_vcpu_resume(ctx);
 done:
 	ret = vm_resume_user_devs(ctx);
 	if (ret != 0)
 		fprintf(stderr, "Could not resume devices\r\n");
+	vm_vcpu_resume(ctx);
 	if (fd_checkpoint > 0)
 		close(fd_checkpoint);
 	if (meta_filename != NULL)
