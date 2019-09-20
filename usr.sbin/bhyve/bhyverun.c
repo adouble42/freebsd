@@ -69,7 +69,7 @@ __FBSDID("$FreeBSD$");
 #include <sysexits.h>
 #include <stdbool.h>
 #include <stdint.h>
-#iifdef BHYVE_SNAPSHOT
+#ifdef BHYVE_SNAPSHOT
 #include <ucl.h>
 #include <unistd.h>
 
