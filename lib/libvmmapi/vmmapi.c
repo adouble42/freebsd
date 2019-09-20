@@ -1559,19 +1559,19 @@ vm_snapshot_req(struct vm_snapshot_meta *meta)
 	return (0);
 }
 
-static int
+static bool
 vm_mem_read_from_file(int fd, void *dest, size_t file_offset, size_t len)
 {
 	char *p;
 	ssize_t cnt_read;
 
 	if (lseek(fd, file_offset, SEEK_SET) == -1) {
-#ifef SNAPSHOT_DEBUG
+#ifdef SNAPSHOT_DEBUG
 		fprintf(stderr,
 		    "%s: Could not change file offset errno = %d\r\n",
 		    __func__, errno);
 #endif
-		return (-1);
+		return (false);
 	}
 
 	p = dest;
@@ -1582,18 +1582,18 @@ vm_mem_read_from_file(int fd, void *dest, size_t file_offset, size_t len)
 #ifdef SNAPSHOT_DEBUG
 			fprintf(stderr, "%s: short read\r\n", __func__);
 #endif
-			return (-1);
+			return (false);
 		} else if (cnt_read < 0) {
 #ifdef SNAPSHOT_DEBUG
 			fprintf(stderr,"%s: read error: %d\r\n",
 			    __func__, errno);
 #endif
-			return (-1);
+			return (false);
 		}
 		p += cnt_read;
 		len -= cnt_read;
 	}
-	return (0);
+	return (true);
 }
 
 int
@@ -1608,8 +1608,7 @@ vm_restore_mem(struct vmctx *ctx, int vmmem_fd, size_t size)
 		return (-1);
 	}
 
-	if (vm_mem_read_from_file(vmmem_fd, ctx->baseaddr, 0, ctx->lowmem) !=
-	    0) {
+	if (!vm_mem_read_from_file(vmmem_fd, ctx->baseaddr, 0, ctx->lowmem)) {
 #ifdef SNAPSHOT_DEBUG
 		fprintf(stderr,
 		    "%s: Could not read lowmem from file\r\n", __func__);
@@ -1618,8 +1617,8 @@ vm_restore_mem(struct vmctx *ctx, int vmmem_fd, size_t size)
 	}
 
 	if (ctx->highmem > 0) {
-		if (vm_mem_read_from_file(vmmem_fd, ctx->baseaddr + 4*GB,
-			ctx->lowmem, ctx->highmem) != 0) {
+		if (!vm_mem_read_from_file(vmmem_fd, ctx->baseaddr + 4*GB,
+		    ctx->lowmem, ctx->highmem)) {
 #ifdef SNAPSHOT_DEBUG
 			fprintf(stderr,
 			    "%s: Could not read highmem from file\r\n",
