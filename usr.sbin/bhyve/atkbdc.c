@@ -138,7 +138,9 @@ struct atkbdc_softc {
 	struct aux_dev aux;
 };
 
+#ifdef BHYVE_SNAPSHOT
 static struct atkbdc_softc *atkbdc_sc = NULL;
+#endif
 
 static void
 atkbdc_assert_kbd_intr(struct atkbdc_softc *sc)
@@ -552,10 +554,13 @@ atkbdc_init(struct vmctx *ctx)
 	sc->ps2kbd_sc = ps2kbd_init(sc);
 	sc->ps2mouse_sc = ps2mouse_init(sc);
 
+#ifdef BHYVE_SNAPSHOT
 	assert(atkbdc_sc == NULL);
 	atkbdc_sc = sc;
+#endif
 }
 
+#ifdef BHYVE_SNAPSHOT
 int
 atkbdc_snapshot(struct vm_snapshot_meta *meta)
 {
@@ -589,6 +594,7 @@ atkbdc_snapshot(struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
 
 static void
 atkbdc_dsdt(void)

@@ -289,7 +289,7 @@ struct pci_xhci_softc {
 
 #define	XHCI_HALTED(sc)		((sc)->opregs.usbsts & XHCI_STS_HCH)
 
-#define XHCI_GADDR_SIZE(a)	(XHCI_PADDR_SZ - \
+#define	XHCI_GADDR_SIZE(a)	(XHCI_PADDR_SZ - \
 				    (((uint64_t) (a)) & (XHCI_PADDR_SZ - 1)))
 #define	XHCI_GADDR(sc,a)	paddr_guest2host((sc)->xsc_pi->pi_vmctx, \
 				    (a), XHCI_GADDR_SIZE(a))
@@ -2858,6 +2858,7 @@ done:
 	return (error);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static void
 pci_xhci_map_devs_slots(struct pci_xhci_softc *sc, int maps[])
 {
@@ -3107,12 +3108,15 @@ pci_xhci_snapshot(struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
 
 struct pci_devemu pci_de_xhci = {
 	.pe_emu =	"xhci",
 	.pe_init =	pci_xhci_init,
 	.pe_barwrite =	pci_xhci_write,
 	.pe_barread =	pci_xhci_read,
+#ifdef BHYVE_SNAPSHOT
 	.pe_snapshot =	pci_xhci_snapshot,
+#endif
 };
 PCI_EMUL_SET(pci_de_xhci);

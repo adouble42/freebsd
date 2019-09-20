@@ -1193,7 +1193,8 @@ done:
 	return (error);
 }
 
-int get_checkpoint_msg(int conn_fd, struct vmctx *ctx)
+int
+get_checkpoint_msg(int conn_fd, struct vmctx *ctx)
 {
 	unsigned char buf[MAX_MSG_SIZE];
 	struct checkpoint_op *checkpoint_op;
@@ -1231,7 +1232,8 @@ done:
 /*
  * Listen for commands from bhyvectl
  */
-void * checkpoint_thread(void *param)
+void *
+checkpoint_thread(void *param)
 {
 	struct checkpoint_thread_info *thread_info;
 	socklen_t addr_len;
@@ -1263,7 +1265,7 @@ void * checkpoint_thread(void *param)
  * i.e. UNIX sockets for IPC with bhyvectl.
  */
 static int
-make_checkpoint_dir()
+make_checkpoint_dir(void)
 {
 	int err;
 

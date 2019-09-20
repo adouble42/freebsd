@@ -60,7 +60,6 @@ SRCS=	\
 	rfb.c			\
 	rtc.c			\
 	smbiostbl.c		\
-	snapshot.c		\
 	sockstream.c		\
 	task_switch.c		\
 	uart_emul.c		\
@@ -72,10 +71,17 @@ SRCS=	\
 	spinup_ap.c		\
 	iov.c
 
+.if ${MK_BHYVE_SNAPSHOT} != "no"
+SRCS+=	snapshot.c
+.endif
+
 .PATH:  ${BHYVE_SYSDIR}/sys/amd64/vmm
 SRCS+=	vmm_instruction_emul.c
 
-LIBADD=	vmmapi md pthread z util sbuf cam ucl xo
+LIBADD=	vmmapi md pthread z util sbuf cam
+.if ${MK_BHYVE_SNAPSHOT} != "no"
+LIBADD+= ucl xo
+.endif
 
 .if ${MK_INET_SUPPORT} != "no"
 CFLAGS+=-DINET
@@ -92,14 +98,18 @@ LIBADD+=	crypto
 CFLAGS+= -I${BHYVE_SYSDIR}/sys/dev/e1000
 CFLAGS+= -I${BHYVE_SYSDIR}/sys/dev/mii
 CFLAGS+= -I${BHYVE_SYSDIR}/sys/dev/usb/controller
-
-.ifdef GDB_LOG
-CFLAGS+=-DGDB_LOG
-.endif
+.if ${MK_BHYVE_SNAPSHOT} != "no"
 CFLAGS+= -I${SRCTOP}/contrib/libucl/include
 
 # Temporary disable capsicum, until we integrate checkpoint code with it.
 CFLAGS+= -DWITHOUT_CAPSICUM
+
+CFLAGS+= -DBHYVE_SNAPSHOT
+.endif
+
+.ifdef GDB_LOG
+CFLAGS+=-DGDB_LOG
+.endif
 
 WARNS?=	2
 

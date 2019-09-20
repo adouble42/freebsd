@@ -789,6 +789,7 @@ umouse_stop(void *scarg)
 	return (0);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 umouse_snapshot(void *scarg, struct vm_snapshot_meta *meta)
 {
@@ -810,6 +811,7 @@ umouse_snapshot(void *scarg, struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
 
 struct usb_devemu ue_mouse = {
 	.ue_emu =	"tablet",
@@ -821,6 +823,8 @@ struct usb_devemu ue_mouse = {
 	.ue_reset =	umouse_reset,
 	.ue_remove =	umouse_remove,
 	.ue_stop =	umouse_stop,
+#ifdef BHYVE_SNAPSHOT
 	.ue_snapshot =	umouse_snapshot,
+#endif
 };
 USB_EMUL_SET(ue_mouse);

@@ -384,6 +384,7 @@ ps2kbd_init(struct atkbdc_softc *atkbdc_sc)
 	return (sc);
 }
 
+#ifdef BHYVE_SNAPSHOT
 int
 ps2kbd_snapshot(struct ps2kbd_softc *sc, struct vm_snapshot_meta *meta)
 {
@@ -395,3 +396,5 @@ ps2kbd_snapshot(struct ps2kbd_softc *sc, struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
+

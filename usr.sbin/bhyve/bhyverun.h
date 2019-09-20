@@ -28,10 +28,10 @@
  * $FreeBSD$
  */
 
- #include <ucl.h>
-
 #ifndef	_FBSDRUN_H_
 #define	_FBSDRUN_H_
+
+//#include <ucl.h>
 
 #define	VMEXIT_CONTINUE		(0)
 #define	VMEXIT_ABORT		(-1)
@@ -43,7 +43,9 @@ extern char *guest_uuid_str;
 extern const char *vmname;
 
 void *paddr_guest2host(struct vmctx *ctx, uintptr_t addr, size_t len);
+#ifdef BHYVE_SNAPSHOT
 uintptr_t paddr_host2guest(struct vmctx *ctx, void *addr);
+#endif
 
 void fbsdrun_set_capabilities(struct vmctx *ctx, int cpu);
 void fbsdrun_addcpu(struct vmctx *ctx, int fromcpu, int newcpu, uint64_t rip);

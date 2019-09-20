@@ -492,7 +492,9 @@ uint64_t vi_pci_read(struct vmctx *ctx, int vcpu, struct pci_devinst *pi,
 		     int baridx, uint64_t offset, int size);
 void	vi_pci_write(struct vmctx *ctx, int vcpu, struct pci_devinst *pi,
 		     int baridx, uint64_t offset, int size, uint64_t value);
+#ifdef BHYVE_SNAPSHOT
 int	vi_pci_snapshot(struct vm_snapshot_meta *meta);
 int	vi_pci_pause(struct pci_devinst *pi);
 int	vi_pci_resume(struct pci_devinst *pi);
+#endif
 #endif	/* _VIRTIO_H_ */

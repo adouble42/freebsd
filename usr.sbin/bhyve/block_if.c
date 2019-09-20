@@ -68,9 +68,6 @@ __FBSDID("$FreeBSD$");
 #define BLOCKIF_NUMTHR	8
 #define BLOCKIF_MAXREQ	(BLOCKIF_RING_MAX + BLOCKIF_NUMTHR)
 
-#define NO_THREAD_IDX		(-2)
-#define REQ_IDX_SEPARATOR	(-1)
-
 enum blockop {
 	BOP_READ,
 	BOP_WRITE,
@@ -374,15 +371,11 @@ blockif_thr(void *arg)
 
 		bc->bc_work_count--;
 
-		/* If none of the workers is busy, notify the main thread */
+		/* If none of the workers are busy, notify the main thread */
 		if (bc->bc_work_count == 0)
 			pthread_cond_broadcast(&bc->bc_work_done_cond);
 
-		/*
-		 * Check ctxt status here to see if exit requested
-		 *
-		 * No sense to wait while paused if closing anyway
-		 */
+		/* Check ctxt status here to see if exit requested */
 		if (bc->bc_closing)
 			break;
 
@@ -628,7 +621,6 @@ blockif_request(struct blockif_ctxt *bc, struct blockif_req *breq,
 	err = 0;
 
 	pthread_mutex_lock(&bc->bc_mtx);
-	/* should make thread wait if interface paused ? */
 	if (!TAILQ_EMPTY(&bc->bc_freeq)) {
 		/*
 		 * Enqueue and inform the block i/o thread
@@ -891,6 +883,7 @@ blockif_candelete(struct blockif_ctxt *bc)
 	return (bc->bc_candelete);
 }
 
+#ifdef BHYVE_SNAPSHOT
 void
 blockif_pause(struct blockif_ctxt *bc)
 {
@@ -899,6 +892,7 @@ blockif_pause(struct blockif_ctxt *bc)
 
 	pthread_mutex_lock(&bc->bc_mtx);
 	bc->bc_paused = 1;
+
 	/* The interface is paused. Wait for workers to finish their work */
 	while (bc->bc_work_count)
 		pthread_cond_wait(&bc->bc_work_done_cond, &bc->bc_mtx);
@@ -935,17 +929,19 @@ blockif_snapshot_req(struct blockif_req *br, struct vm_snapshot_meta *meta)
 	SNAPSHOT_VAR_OR_LEAVE(br->br_offset, meta, ret, done);
 	SNAPSHOT_VAR_OR_LEAVE(br->br_resid, meta, ret, done);
 
-	/* XXX: The callback and parameter must be filled by the virtualized
+	/*
+	 * XXX: The callback and parameter must be filled by the virtualized
 	 * device that uses the interface, during its init; we're not touching
-	 * them here
+	 * them here.
 	 */
 
-	/* Snapshot the iovecs */
+	/* Snapshot the iovecs. */
 	for (i = 0; i < br->br_iovcnt; i++) {
 		iov = &br->br_iov[i];
 
 		SNAPSHOT_VAR_OR_LEAVE(iov->iov_len, meta, ret, done);
-		/* we assume the iov is a guest-mapped address */
+
+		/* We assume the iov is a guest-mapped address. */
 		SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(iov->iov_base, iov->iov_len,
 			false, meta, ret, done);
 	}
@@ -982,4 +978,4 @@ done:
 	pthread_mutex_unlock(&bc->bc_mtx);
 	return (ret);
 }
-
+#endif

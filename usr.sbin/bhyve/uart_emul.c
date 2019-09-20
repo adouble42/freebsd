@@ -720,6 +720,7 @@ uart_set_backend(struct uart_softc *sc, const char *opts)
 	return (retval);
 }
 
+#ifdef BHYVE_SNAPSHOT
 int
 uart_snapshot(struct uart_softc *sc, struct vm_snapshot_meta *meta)
 {
@@ -749,3 +750,4 @@ uart_snapshot(struct uart_softc *sc, struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif

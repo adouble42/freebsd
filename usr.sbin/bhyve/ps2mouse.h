@@ -41,6 +41,8 @@ void ps2mouse_write(struct ps2mouse_softc *sc, uint8_t val, int insert);
 void ps2mouse_toggle(struct ps2mouse_softc *sc, int enable);
 int ps2mouse_fifocnt(struct ps2mouse_softc *sc);
 
+#ifdef BHYVE_SNAPSHOT
 int ps2mouse_snapshot(struct ps2mouse_softc *sc, struct vm_snapshot_meta *meta);
+#endif
 
 #endif /* _PS2MOUSE_H_ */

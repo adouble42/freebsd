@@ -2359,6 +2359,7 @@ e82545_init(struct vmctx *ctx, struct pci_devinst *pi, char *opts)
 	return (0);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 e82545_snapshot(struct vm_snapshot_meta *meta)
 {
@@ -2371,7 +2372,7 @@ e82545_snapshot(struct vm_snapshot_meta *meta)
 	pi = meta->dev_data;
 	sc = pi->pi_arg;
 
-	/* esc_mevp and esc_mevpitr should be reinitiated at init */
+	/* esc_mevp and esc_mevpitr should be reinitiated at init. */
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_mac, meta, ret, done);
 
 	/* General */
@@ -2392,9 +2393,11 @@ e82545_snapshot(struct vm_snapshot_meta *meta)
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_IMS, meta, ret, done);
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_IMC, meta, ret, done);
 
-	/* Transmit */
-	/* The fields in the unions are in superposition to access certain
-	 * bytes in the larger uint variables
+	/*
+	 * Transmit
+	 *
+	 * The fields in the unions are in superposition to access certain
+	 * bytes in the larger uint variables.
 	 * e.g., ip_config = [ipcss|ipcso|ipcse0|ipcse1]
 	 */
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_txctx.lower_setup.ip_config, meta, ret, done);
@@ -2419,7 +2422,7 @@ e82545_snapshot(struct vm_snapshot_meta *meta)
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_TXDCTL, meta, ret, done);
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_TADV, meta, ret, done);
 
-	/* Has dependency on esc_TDLEN; reoreder of fields from struct */
+	/* Has dependency on esc_TDLEN; reoreder of fields from struct. */
 	SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(sc->esc_txdesc, sc->esc_TDLEN,
 		true, meta, ret, done);
 
@@ -2454,20 +2457,24 @@ e82545_snapshot(struct vm_snapshot_meta *meta)
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_RSRPD, meta, ret, done);
 	SNAPSHOT_VAR_OR_LEAVE(sc->esc_RXCSUM, meta, ret, done);
 
-	/* Has dependency on esc_RDLEN; reoreder of fields from struct */
+	/* Has dependency on esc_RDLEN; reoreder of fields from struct. */
 	SNAPSHOT_GUEST2HOST_ADDR_OR_LEAVE(sc->esc_rxdesc, sc->esc_TDLEN,
 		true, meta, ret, done);
 
 	/* IO Port register access */
 	SNAPSHOT_VAR_OR_LEAVE(sc->io_addr, meta, ret, done);
+
 	/* Shadow copy of MDIC */
 	SNAPSHOT_VAR_OR_LEAVE(sc->mdi_control, meta, ret, done);
+
 	/* Shadow copy of EECD */
 	SNAPSHOT_VAR_OR_LEAVE(sc->eeprom_control, meta, ret, done);
+
 	/* Latest NVM in/out */
 	SNAPSHOT_VAR_OR_LEAVE(sc->nvm_data, meta, ret, done);
 	SNAPSHOT_VAR_OR_LEAVE(sc->nvm_opaddr, meta, ret, done);
-	/* stats */
+
+	/* Stats */
 	SNAPSHOT_VAR_OR_LEAVE(sc->missed_pkt_count, meta, ret, done);
 	SNAPSHOT_BUF_OR_LEAVE(sc->pkt_rx_by_size, sizeof(sc->pkt_rx_by_size),
 			      meta, ret, done);
@@ -2504,13 +2511,16 @@ e82545_snapshot(struct vm_snapshot_meta *meta)
 done:
 	return (ret);
 }
+#endif
 
 struct pci_devemu pci_de_e82545 = {
 	.pe_emu = 	"e1000",
 	.pe_init =	e82545_init,
 	.pe_barwrite =	e82545_write,
 	.pe_barread =	e82545_read,
+#ifdef BHYVE_SNAPSHOT
 	.pe_snapshot =	e82545_snapshot,
+#endif
 };
 PCI_EMUL_SET(pci_de_e82545);
 

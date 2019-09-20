@@ -252,9 +252,11 @@ void	pci_walk_lintr(int bus, pci_lintr_cb cb, void *arg);
 void	pci_write_dsdt(void);
 uint64_t pci_ecfg_base(void);
 int	pci_bus_configured(int bus);
+#ifdef BHYVE_SNAPSHOT
 int	pci_snapshot(struct vm_snapshot_meta *meta);
 int	pci_pause(struct vmctx *ctx, const char *dev_name);
 int	pci_resume(struct vmctx *ctx, const char *dev_name);
+#endif
 
 static __inline void 
 pci_set_cfgdata8(struct pci_devinst *pi, int offset, uint8_t val)

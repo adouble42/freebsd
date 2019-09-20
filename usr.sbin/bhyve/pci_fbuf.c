@@ -440,6 +440,7 @@ done:
 	return (error);
 }
 
+#ifdef BHYVE_SNAPSHOT
 static int
 pci_fbuf_snapshot(struct vm_snapshot_meta *meta)
 {
@@ -450,12 +451,15 @@ pci_fbuf_snapshot(struct vm_snapshot_meta *meta)
 err:
 	return (ret);
 }
+#endif
 
 struct pci_devemu pci_fbuf = {
 	.pe_emu =	"fbuf",
 	.pe_init =	pci_fbuf_init,
 	.pe_barwrite =	pci_fbuf_write,
 	.pe_barread =	pci_fbuf_read,
+#ifdef BHYVE_SNAPSHOT
 	.pe_snapshot =	pci_fbuf_snapshot,
+#endif
 };
 PCI_EMUL_SET(pci_fbuf);
