@@ -89,8 +89,8 @@ extern int guest_ncpus;
 
 const struct vm_snapshot_dev_info snapshot_devs[] = {
 	{ "atkbdc",	atkbdc_snapshot,	NULL,		NULL		},
-	{ "virtio-net",	pci_snapshot,		NULL,		NULL		},
-	{ "virtio-blk",	pci_snapshot,		NULL,		NULL		},
+	{ "virtio-net",	pci_snapshot,		pci_pause,	pci_resume	},
+	{ "virtio-blk",	pci_snapshot,		pci_pause,	pci_resume	},
 	{ "lpc",	pci_snapshot,		NULL,		NULL		},
 	{ "fbuf",	pci_snapshot,		NULL,		NULL		},
 	{ "xhci",	pci_snapshot,		NULL,		NULL		},
