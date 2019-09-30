@@ -356,6 +356,9 @@ device		virtio_blk		# VirtIO Block device
 device		virtio_scsi		# VirtIO SCSI device
 device		virtio_balloon		# VirtIO Memory Balloon device
 
+# bhyve snapshot
+option		BHYVE_SNAPSHOT
+
 # HyperV drivers and enhancement support
 device		hyperv			# HyperV drivers 
 

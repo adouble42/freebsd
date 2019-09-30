@@ -149,19 +149,6 @@ static struct virtio_consts vtnet_vi_consts = {
 };
 
 static void
-pci_vtnet_txwait(struct pci_vtnet_softc *sc)
-{
-
-	pthread_mutex_lock(&sc->tx_mtx);
-	while (sc->tx_in_progress) {
-		pthread_mutex_unlock(&sc->tx_mtx);
-		usleep(10000);
-		pthread_mutex_lock(&sc->tx_mtx);
-	}
-	pthread_mutex_unlock(&sc->tx_mtx);
-}
-
-static void
 pci_vtnet_reset(void *vsc)
 {
 	struct pci_vtnet_softc *sc = vsc;
@@ -197,6 +184,19 @@ pci_vtnet_reset(void *vsc)
 }
 
 #ifdef BHYVE_SNAPSHOT
+static void
+pci_vtnet_txwait(struct pci_vtnet_softc *sc)
+{
+
+	pthread_mutex_lock(&sc->tx_mtx);
+	while (sc->tx_in_progress) {
+		pthread_mutex_unlock(&sc->tx_mtx);
+		usleep(10000);
+		pthread_mutex_lock(&sc->tx_mtx);
+	}
+	pthread_mutex_unlock(&sc->tx_mtx);
+}
+
 static void
 pci_vtnet_pause(void *vsc)
 {
