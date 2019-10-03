@@ -185,35 +185,22 @@ pci_vtnet_reset(void *vsc)
 
 #ifdef BHYVE_SNAPSHOT
 static void
-pci_vtnet_txwait(struct pci_vtnet_softc *sc)
-{
-
-	pthread_mutex_lock(&sc->tx_mtx);
-	while (sc->tx_in_progress) {
-		pthread_mutex_unlock(&sc->tx_mtx);
-		usleep(10000);
-		pthread_mutex_lock(&sc->tx_mtx);
-	}
-	pthread_mutex_unlock(&sc->tx_mtx);
-}
-
-static void
 pci_vtnet_pause(void *vsc)
 {
 	struct pci_vtnet_softc *sc = vsc;
 
 	DPRINTF(("vtnet: device pause requested !\n"));
 
-	pthread_mutex_lock(&sc->tx_mtx);
+	/* Acquire the RX lock to block RX processing. */
 	pthread_mutex_lock(&sc->rx_mtx);
-	sc->resetting = 1;
-	pthread_mutex_unlock(&sc->rx_mtx);
-	pthread_mutex_unlock(&sc->tx_mtx);
 
-	/*
-	 * Wait for the transmit thread to finish its processing.
-	 */
-	pci_vtnet_txwait(sc);
+	/* Wait for the transmit thread to finish its processing. */
+	pthread_mutex_lock(&sc->tx_mtx);
+	while (sc->tx_in_progress) {
+		pthread_mutex_unlock(&sc->tx_mtx);
+		usleep(10000);
+		pthread_mutex_lock(&sc->tx_mtx);
+	}
 }
 
 static void
@@ -223,11 +210,9 @@ pci_vtnet_resume(void *vsc)
 
 	DPRINTF(("vtnet: device resume requested !\n"));
 
-	pthread_mutex_lock(&sc->tx_mtx);
-	pthread_mutex_lock(&sc->rx_mtx);
-	sc->resetting = 0;
-	pthread_mutex_unlock(&sc->rx_mtx);
 	pthread_mutex_unlock(&sc->tx_mtx);
+	/* The RX lock should have been acquired in vtnet_pause. */
+	pthread_mutex_unlock(&sc->rx_mtx);
 }
 
 static int
