@@ -8,6 +8,8 @@
  * Copyright (c) 2017-2019 Elena Mihailescu
  * Copyright (c) 2018-2019 Sergiu Weisz
  * All rights reserved.
+ * The bhyve-snapshot feature was developed under sponsorships
+ * from Matthew Grooms.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
