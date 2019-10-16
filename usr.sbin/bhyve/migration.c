@@ -981,12 +981,15 @@ end:
 
 #define MIGRATION_ROUNDS	4
 
+/*
+ * Computes the number of elements (pages) in the page_list array that are set
+ */
 static size_t
 num_dirty_pages(char *page_list, size_t size)
 {
-	size_t num = 0;
-	size_t i;
+	size_t num, i;
 
+	num = 0;
 	for (i = 0; i < size; i++)
 		if (page_list[i] == 1)
 			num++;
@@ -994,6 +997,25 @@ num_dirty_pages(char *page_list, size_t size)
 	return (num);
 }
 
+/*
+ * Completes a struct vmm_migration_pages entity based on the page_list array.
+ * page_list may have a different number of dirty pages than the capacity of
+ * req, so this function may need to be called multiple times. The
+ * current_position param indicates from where to start when completing the req
+ * param. After completing meta information in req, vm_copy_vmm_pages function
+ * is called to copy pages content from kernel space.
+ * Params:
+ *	- ctx: guest's context
+ *	- req: the struct vmm_migration_pages_req entity that needs to be
+ *	completed
+ *	- page_list: array containing information about dirty pages (1 means that
+ *	the page is dirty and should be migrated to the destination)
+ *	- size: the size of page_list array
+ *	- current_position: the position from where to start searching dirty pages
+ *	in page_list array
+ * Return value: vm_copy_vmm_pages return value - 0 for success, non zero
+ * otherwise.
+ */
 static int
 migration_fill_vmm_migration_pages_req(struct vmctx *ctx,
 				       struct vmm_migration_pages_req *req,
@@ -1021,17 +1043,30 @@ migration_fill_vmm_migration_pages_req(struct vmctx *ctx,
 	return vm_copy_vmm_pages(ctx, req);
 }
 
+/*
+ * Send live migration pages to destination.
+ * Params:
+ *	- ctx: virtual machine context
+ *	- socket: the socket used to communicate with destination
+ *	- req: struct vmm_migration_pages_req entity that should be used to sent
+ *	the dirty pages to the destination
+ *	- page_list: an array that contains the dirty page list (the destination
+ *	host needs to know what pages will be sent by the source host)
+ *	- page_list_size: the size of page_list array
+ *	- already_locked: bool value that indicates whether the vcpus are
+ *	stopped or not (when copying information from guest memory - the dirty
+ *	pages content - the vcpus should be paused).
+ * Return value: 0 for success, non-zero otherwise.
+ */
 static int
 send_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 	   char *page_list, size_t page_list_size, int already_locked)
 {
-	size_t dirty_pages;
 	size_t current_pos, i;
 	int rc;
 
-	dirty_pages = num_dirty_pages(page_list, page_list_size);
-
-	// send page_list;
+	// send page_list - the destination host should know what pages will
+	// arrive;
 	rc = migration_send_data_remote(socket, page_list, page_list_size);
 	if (rc < 0) {
 		fprintf(stderr, "%s: Could not send page_list remote\r\n",
@@ -1039,17 +1074,22 @@ send_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 		return (-1);
 	}
 
+	// complete req and send at most VMM_PAGE_CHUNK pages to the destination
 	current_pos = 0;
 	while (1) {
 		if (current_pos >= page_list_size)
 			break;
 
+		// initiate all req page_indexes to -1
 		for (i = 0; i < VMM_PAGE_CHUNK; i++)
 			req->pages[i].pindex = -1;
 
 
 		req->pages_required = 0;
 
+		// when copying data from guest's memory (lowmem or highmem
+		// segments), the vcpus should be paused to avoid writings in
+		// pages before/after the copying process.
 		if (!already_locked)
 			vm_vcpu_pause(ctx);
 
@@ -1066,6 +1106,7 @@ send_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 			return (-1);
 		}
 
+		// send pages one by one to destination
 		for (i = 0; i < req->pages_required; i++) {
 			rc = migration_send_data_remote(socket,
 							req->pages[i].page,
@@ -1083,14 +1124,26 @@ send_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 	return (0);
 }
 
+/*
+ * Receive live migration pages from source.
+ * Params:
+ *	- ctx: virtual machine context
+ *	- socket: the socket used to communicate with source
+ *	- req: struct vmm_migration_pages_req entity that should be used to
+ *	receive the dirty pages to the destination
+ *	- page_list: an array that is used to receive the dirty page list from
+ *	source
+ *	- page_list_size: the size of page_list array
+ * Return value: 0 for success, non-zero otherwise.
+ */
 static int
 recv_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 	   char *page_list, size_t page_list_size)
 {
-	size_t dirty_pages;
 	size_t i, count, current_pos;
 	int rc;
 
+	// receive the dirty page list from source
 	rc = migration_recv_data_from_remote(socket, page_list, page_list_size);
 	if (rc < 0) {
 		fprintf(stderr, "%s: Could not receive page_list from "
@@ -1098,8 +1151,8 @@ recv_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 		return (-1);
 	}
 
-	dirty_pages  = num_dirty_pages(page_list, page_list_size);
-
+	// based on the dirty page list, compute the pages that should be
+	// received from source and update the guest's memory pages
 	current_pos = 0;
 	while (1) {
 		if (current_pos >= page_list_size)
@@ -1138,9 +1191,8 @@ recv_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 				return (-1);
 			}
 		}
+
 		// update pages
-
-
 		req->req_type = VMM_SET_PAGES;
 		rc =  vm_copy_vmm_pages(ctx, req);
 
@@ -1154,14 +1206,27 @@ recv_pages(struct vmctx *ctx, int socket, struct vmm_migration_pages_req *req,
 	return (0);
 }
 
+/*
+ * Search dirty pages for a migration round
+ * Params:
+ *	- ctx: virtual machine context
+ *	- page_list: an array that keeps information of each of the guest's
+ *	memory pages: 0 means that the page is clean and 1 means that the page
+ *	is dirty. page_list must be previously allocated (before calling this
+ *	function) and its size must be at least the number of guest memory
+ *	pages.
+ * Return value: 0 for success, non-zero otherwise
+ */
 static int
 search_dirty_pages(struct vmctx *ctx, char *page_list)
 {
 	size_t lowmem_pages, highmem_pages, pages;
-	int error = 0;
+	int error;
 
+	// compute the number of pages for each of the guest's memory segment
+	lowmem_pages = highmem_pages = pages = 0;
 	error = vm_get_pages_num(ctx, &lowmem_pages, &highmem_pages);
-	pages = lowmem_pages + highmem_pages;
+
 	if (error != 0) {
 		fprintf(stderr,
 			"%s: Error while trying to get page number\r\n",
@@ -1169,13 +1234,23 @@ search_dirty_pages(struct vmctx *ctx, char *page_list)
 		return (-1);
 	}
 
+	pages = lowmem_pages + highmem_pages;
+
 	if (page_list == NULL)
 		return (-1);
 
+	// call vm_get_dirty_page_list function to seach for dirty pages
 	vm_get_dirty_page_list(ctx, page_list, pages);
 	return (0);
 }
 
+/*
+ * Complete the page_list array with a specific character
+ * Params:
+ *	- page_list: the array that must be filled
+ *	- list_len: the size of the page_list array
+ *	- c: the character to fill with the array
+ */
 static inline void
 fill_page_list(char *page_list, size_t list_len, char c)
 {
@@ -1188,20 +1263,33 @@ fill_page_list(char *page_list, size_t list_len, char c)
 		page_list[index] = c;
 }
 
+/*
+ * Live migration logic - sender part
+ * Send guest memory in rounds to the destination
+ * In the final round, beside the dirty pages (from the previous round), we send
+ * the user space emulated devices and kernel structures state.
+ * Params:
+ *	- ctx: the virtual machine context
+ *	- socket: the socket used for communicating with the destination host
+ * Return value: 0 for success, non-zero otherwise
+ */
 static int
 live_migrate_send(struct vmctx *ctx, int socket)
 {
-	int error = 0;
-	size_t memory_size = 0, lowmem_size = 0, highmem_size = 0;
+	int error;
+	size_t memory_size, lowmem_size, highmem_size;
 	size_t lowmem_pages, highmem_pages, pages;
 	char *baseaddr;
-
-	char *page_list_indexes = NULL;
+	char *page_list_indexes;
 	struct vmm_migration_pages_req memory_req;
 	int i, rc;
-	uint8_t rounds = MIGRATION_ROUNDS;
-
+	uint8_t rounds;
 	size_t migration_completed;
+
+
+	rounds = MIGRATION_ROUNDS;
+	memory_size = lowmem_size = highmem_size = 0;
+	page_list_indexes = NULL;
 
 	/* Send the number of memory rounds to destination */
 	error = migration_send_data_remote(socket, &rounds, sizeof(rounds));
@@ -1218,7 +1306,7 @@ live_migrate_send(struct vmctx *ctx, int socket)
 	vm_get_pages_num(ctx, &lowmem_pages, &highmem_pages);
 	pages = lowmem_pages + highmem_pages;
 
-	/* alloc page_list_indexes */
+	/* alloc page_list_indexes (reuse same array for each memory pages) */
 	page_list_indexes = malloc (pages * sizeof(char));
 	if (page_list_indexes == NULL) {
 		perror("Page list indexes could not be allocated");
@@ -1226,6 +1314,8 @@ live_migrate_send(struct vmctx *ctx, int socket)
 		goto done;
 	}
 
+	// initiate the structure used for live migrating the pages in multiple
+	// rounds
 	error = vm_init_vmm_migration_pages_req(ctx, &memory_req);
 	if (error < 0) {
 		fprintf(stderr, "%s: Could not initialize "
@@ -1310,9 +1400,9 @@ live_migrate_send(struct vmctx *ctx, int socket)
 		goto unlock_vm_and_exit;
 	}
 
-	// Poweroff the vm
 	vm_vcpu_resume(ctx);
 
+	// Destroy the vm after the migration is completed
 	vm_destroy(ctx);
 	exit(0);
 
@@ -1327,19 +1417,33 @@ done:
 	return (error);
 }
 
+/*
+ * Live migration logic - receiver part
+ * Receive the guest memory in rounds from the source
+ * In the final round, beside the dirty pages (from the previous round), we
+ * receive
+ * the user space emulated devices and kernel structures state.
+ * Params:
+ *	- ctx: the virtual machine context
+ *	- socket: the socket used for communicating with the destination host
+ * Return value: 0 for success, non-zero otherwise
+ */
 static int
 live_migrate_recv(struct vmctx *ctx, int socket)
 {
-	int error = 0;
-	size_t memory_size = 0, lowmem_size = 0, highmem_size = 0;
+	int error;
+	size_t memory_size, lowmem_size, highmem_size;
 	size_t lowmem_pages, highmem_pages, pages;
 	char *baseaddr;
-
 	struct vmm_migration_pages_req memory_req;
-	char *page_list_indexes = NULL;
+	char *page_list_indexes;
 	int index;
 	uint8_t rounds;
 
+	memory_size = lowmem_size = highmem_size = 0;
+	page_list_indexes = NULL;
+
+	/* Receive the number of rounds */
 	error = migration_recv_data_from_remote(socket, &rounds, sizeof(rounds));
 	if (error != 0) {
 		fprintf(stderr, "%s: Could not recv the number of rounds from "
@@ -1396,6 +1500,23 @@ done:
 	return (error);
 }
 
+/*
+ * Create connections between sender and receiver.
+ * Params:
+ *	- req: struct migrate_req that contains the address and port that the
+ *	other host uses for connection.
+ *	- socket_fd - for the sender, it is completed with the socket file
+ *	descriptor returned by connect. For the receiver, it is returned the
+ *	socket file description used for listen.
+ *	- connection_socket_fd - if type is MIGRATION_SEND_REQ, this parameter
+ *	is ignored. If type is MIGRATION_RECV_REQ, this parameter is completed
+ *	with the file descriptor returned by accept.
+ *	- type - indicates the type of the connection: MIGRATION_SEND_REQ is
+ *	used for sender (considered to be a client) and MIGRATION_RECV_REQ is
+ *	used for receiver (considered to be a server that waits for connections
+ *	- i.e. for a virtual machine to be migrated).
+ * Return value: 0 for success, non-zero otherwise
+ */
 static inline int
 migrate_connections(struct migrate_req req, int *socket_fd,
 		    int *connection_socket_fd,
@@ -1513,6 +1634,15 @@ done:
 	return (error);
 }
 
+/*
+ * Function used for warm or live migration - sender part.
+ * Params:
+ *	- ctx: virtual machine context
+ *	- req: contains the address and the port received from the command line
+ *	for migration (from bhyvectl)
+ *	- live: true for live migration, false for warm migration
+ * Return value: 0 for success, non-zero otherwise
+ */
 int
 vm_send_migrate_req(struct vmctx *ctx, struct migrate_req req, bool live)
 {
@@ -1638,6 +1768,14 @@ done:
 	return (error);
 }
 
+/*
+ * Function used for warm or live migration - receiver part.
+ * Params:
+ *	- ctx: virtual machine context
+ *	- req: contains the address and the port received from the command line
+ *	for migration (arguments given to bhyve)
+ * Return value: 0 for success, non-zero otherwise
+ */
 int
 vm_recv_migrate_req(struct vmctx *ctx, struct migrate_req req)
 {
